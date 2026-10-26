@@ -14,10 +14,12 @@ function RootNavigationGate() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const firstSegment = (segments as string[])[0];
+    const inAuthGroup = firstSegment === '(auth)' || firstSegment === 'auth';
+    const isRootWelcome = !firstSegment || firstSegment === 'index';
 
     if (!isAuthenticated) {
-      if (!inAuthGroup) {
+      if (!inAuthGroup && !isRootWelcome) {
         router.replace('/(auth)/login');
       }
     } else {
@@ -28,7 +30,7 @@ function RootNavigationGate() {
         if (secondSegment !== 'complete-profile') {
           router.replace('/(auth)/complete-profile');
         }
-      } else if (inAuthGroup) {
+      } else if (inAuthGroup || isRootWelcome) {
         // Already logged in & completed profile -> go to main app
         router.replace('/(app)');
       }

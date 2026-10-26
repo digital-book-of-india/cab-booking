@@ -34,7 +34,7 @@ function resolveBaseUrl(): string {
 
 export const API_CONFIG = {
   baseURL: resolveBaseUrl(),
-  timeout: 15000,
+  timeout: 4000,
 } as const;
 
 export const APP_CONFIG = {
