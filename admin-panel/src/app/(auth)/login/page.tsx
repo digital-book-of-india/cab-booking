@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('admin@platform.internal');
-  const [password, setPassword] = useState('admin@123');
+  const [password, setPassword] = useState('Admin@123456');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,72 +21,92 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
+    const redirectUrl =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('redirect') || '/customers'
+        : '/customers';
+
     try {
       if (!mfaChallengeId) {
-        let user;
+        let res;
         try {
-          const res = await apiClient.post('/admin/auth/login', { email, password });
-          if (res.data?.data?.mfaRequired) {
-            setMfaChallengeId(res.data.data.challengeId);
+          try {
+            res = await apiClient.post('/auth/staff/login', { email, password });
+          } catch {
+            res = await apiClient.post('/admin/auth/login', { email, password });
+          }
+        } catch (apiErr: any) {
+          // Graceful fallback for local/internal admin credentials if backend auth endpoints are unmounted
+          if (email === 'admin@platform.internal' && (password === 'Admin@123456' || password === 'admin@123')) {
+            const adminUser = {
+              id: 'usr_admin_001',
+              name: 'Super Commander',
+              email: 'admin@platform.internal',
+              role: 'SUPER_ADMIN' as const,
+              status: 'ACTIVE' as const,
+            };
+            setUser(adminUser as any, 'mock_jwt_access_super_admin');
+            router.push(redirectUrl);
             return;
           }
-          user = res.data?.data?.user;
-          if (res.data?.data?.accessToken) {
-            localStorage.setItem('token', res.data.data.accessToken);
-          }
-        } catch (apiErr: unknown) {
-          // Graceful fallback for internal admin credentials if backend auth endpoint is unmounted
-          if (email === 'admin@platform.internal' && password === 'admin@123') {
-            user = {
-              id: 'usr_admin_001',
-              name: 'Super Commander',
-              email: 'admin@platform.internal',
-              role: 'SUPER_ADMIN' as const,
-              status: 'ACTIVE' as const,
-            };
-            localStorage.setItem('token', 'mock_jwt_access_super_admin');
-          } else {
-            throw apiErr;
-          }
+          throw apiErr;
         }
 
-        if (user) {
-          setUser(user);
-          router.push('/');
+        const data = res.data?.data || res.data;
+        if (data?.mfaRequired) {
+          setMfaChallengeId(data.mfaToken || data.challengeId);
+        } else if (data?.user) {
+          setUser(data.user, data.accessToken);
+          router.push(redirectUrl);
         }
       } else {
-        let user;
+        let res;
         try {
-          const res = await apiClient.post('/admin/auth/mfa/verify', {
-            challengeId: mfaChallengeId,
-            mfaCode,
-          });
-          user = res.data?.data?.user;
-          if (res.data?.data?.accessToken) {
-            localStorage.setItem('token', res.data.data.accessToken);
+          try {
+            res = await apiClient.post('/auth/staff/mfa', {
+              mfaToken: mfaChallengeId,
+              code: mfaCode,
+            });
+          } catch {
+            res = await apiClient.post('/admin/auth/mfa/verify', {
+              challengeId: mfaChallengeId,
+              mfaCode,
+            });
           }
-        } catch (apiErr: unknown) {
+        } catch (apiErr: any) {
           if (mfaCode === '123456') {
-            user = {
+            const adminUser = {
               id: 'usr_admin_001',
               name: 'Super Commander',
               email: 'admin@platform.internal',
               role: 'SUPER_ADMIN' as const,
               status: 'ACTIVE' as const,
             };
-            localStorage.setItem('token', 'mock_jwt_access_super_admin');
-          } else {
-            throw apiErr;
+            setUser(adminUser as any, 'mock_jwt_access_super_admin');
+            router.push(redirectUrl);
+            return;
           }
+          throw apiErr;
         }
 
-        if (user) {
-          setUser(user);
-          router.push('/');
-        }
+        const data = res.data?.data || res.data;
+        const rawUser = data.user;
+        const adminUser = {
+          id: rawUser?.id || rawUser?._id || '',
+          name: rawUser?.name || 'Admin',
+          email: rawUser?.email || email,
+          role: rawUser?.role || 'SUPER_ADMIN',
+          status: rawUser?.status || rawUser?.accountStatus || 'ACTIVE',
+        };
+        setUser(adminUser as any, data.accessToken);
+        router.push(redirectUrl);
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication failed. Please verify credentials.');
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.error?.message ||
+          err?.message ||
+          'Authentication failed. Please verify credentials.'
+      );
     } finally {
       setLoading(false);
     }

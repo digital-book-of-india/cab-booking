@@ -12,6 +12,7 @@ import { Session } from '../modules/auth/session.model';
 import { locationUpdateSchema } from '../modules/presence/presence.schemas';
 import type { PresenceService } from '../modules/presence/presence.service';
 import { User } from '../modules/users/user.model';
+import { DriverProfile } from '../modules/drivers/driverProfile.model';
 import type { RealtimeBus } from './bus';
 import { ClientEvents, ServerEvents, type Envelope, type ServerEventName } from './events';
 
@@ -226,11 +227,60 @@ export function createSocketBus() {
           if (Date.now() > current.expiresAtMs) throw new AppError('UNAUTHENTICATED');
           if (current.role !== 'DRIVER') throw new AppError('FORBIDDEN');
           const input = locationUpdateSchema.parse(payload);
-          reply({ ok: true, data: await options.presence.updateLocation(current.userId, input) });
+          const updateData = await options.presence.updateLocation(current.userId, input);
+
+          const profile = await DriverProfile.findOne({ userId: current.userId })
+            .select('_id currentVehicleId activeRideId')
+            .lean();
+          const driverId = profile?._id ? profile._id.toString() : current.userId;
+          const telemetryData = {
+            driverId,
+            userId: current.userId,
+            lat: input.lat,
+            lng: input.lng,
+            headingDegrees: input.headingDegrees ?? 0,
+            speedKmh: input.speedMetersPerSecond ? Math.round(input.speedMetersPerSecond * 3.6) : 0,
+            recordedAt: new Date().toISOString(),
+          };
+
+          server.in(OPS_ROOM).emit('driver.location.updated', telemetryData);
+          server.in(OPS_ROOM).emit(ServerEvents.DRIVER_LOCATION, envelope(ServerEvents.DRIVER_LOCATION, telemetryData));
+
+          reply({ ok: true, data: updateData });
         } catch (err) {
           if (!(err instanceof AppError || err instanceof ZodError)) {
             options.logger.error({ err }, 'socket location update failed');
           }
+          reply(errorReply(err));
+        }
+      });
+
+      socket.on('ops:simulate_driver_location', async (payload: unknown, ack?: unknown) => {
+        const reply = asAck(ack);
+        try {
+          const current = authOf(socket);
+          if (!OPS_ROOM_ROLES.includes(current.role)) throw new AppError('FORBIDDEN');
+          const p = payload as {
+            driverId: string;
+            lat: number;
+            lng: number;
+            headingDegrees?: number;
+            speedKmh?: number;
+          };
+          if (p && p.driverId && typeof p.lat === 'number' && typeof p.lng === 'number') {
+            const telemetry = {
+              driverId: p.driverId,
+              lat: p.lat,
+              lng: p.lng,
+              headingDegrees: p.headingDegrees ?? 0,
+              speedKmh: p.speedKmh ?? 35,
+              recordedAt: new Date().toISOString(),
+            };
+            server.in(OPS_ROOM).emit('driver.location.updated', telemetry);
+            server.in(OPS_ROOM).emit(ServerEvents.DRIVER_LOCATION, envelope(ServerEvents.DRIVER_LOCATION, telemetry));
+            reply({ ok: true });
+          }
+        } catch (err) {
           reply(errorReply(err));
         }
       });

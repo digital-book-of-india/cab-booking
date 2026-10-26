@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiErrorResponse } from '@/types';
 
 let mswReadyPromise: Promise<boolean> | null = null;
@@ -46,6 +46,15 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+
+    // Attach JWT Authorization header
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      if (token && !config.headers['Authorization']) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
