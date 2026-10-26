@@ -1,0 +1,108 @@
+﻿'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { apiClient } from '@/lib/api-client';
+import { Vehicle } from '@/types';
+import { Car, CheckCircle2, XCircle } from 'lucide-react';
+
+export default function VehiclesPage() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await apiClient.get('/admin/vehicles');
+      setVehicles(res.data.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const handleVerify = async (vehicleId: string, status: 'VERIFIED' | 'REJECTED') => {
+    await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {
+      verificationStatus: status,
+      reasonCode: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
+    });
+    fetchVehicles();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Vehicle Registry & Verification</h1>
+          <p className="text-xs text-slate-500 mt-1">Review vehicle registration, capacity, and commercial verification status.</p>
+        </div>
+        <Link
+          href="/vehicles/categories"
+          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+        >
+          Manage Cab Categories
+        </Link>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+        <table className="w-full text-left text-sm text-slate-700">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th className="px-6 py-3.5">Registration</th>
+              <th className="px-6 py-3.5">Make / Model</th>
+              <th className="px-6 py-3.5">Category</th>
+              <th className="px-6 py-3.5">Assigned Driver</th>
+              <th className="px-6 py-3.5">Status</th>
+              <th className="px-6 py-3.5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400">Loading fleet registry...</td></tr>
+            ) : (
+              vehicles.map((v) => (
+                <tr key={v.id} className="hover:bg-slate-50/80 transition">
+                  <td className="px-6 py-4 font-mono font-bold text-slate-900 text-xs">{v.registrationNumber}</td>
+                  <td className="px-6 py-4 text-xs font-medium text-slate-800">{v.makeModel} ({v.seats} Seats)</td>
+                  <td className="px-6 py-4 font-semibold text-indigo-700 text-xs">{v.categoryName}</td>
+                  <td className="px-6 py-4 text-xs text-slate-600">{v.driverName}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      v.verificationStatus === 'VERIFIED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {v.verificationStatus}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-2">
+                    {v.verificationStatus === 'PENDING' && (
+                      <>
+                        <button
+                          onClick={() => handleVerify(v.id, 'VERIFIED')}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-xs font-semibold transition"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          onClick={() => handleVerify(v.id, 'REJECTED')}
+                          className="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 text-xs font-semibold transition"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

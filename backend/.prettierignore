@@ -1,0 +1,5 @@
+dist
+node_modules
+coverage
+load-results.json
+verify-live-results.json

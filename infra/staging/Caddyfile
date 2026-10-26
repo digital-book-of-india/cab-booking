@@ -1,0 +1,15 @@
+# HTTPS for the API. {$API_DOMAIN} must be a DNS name that points at this server (ports 80 and 443 open).
+{$API_DOMAIN} {
+	encode zstd gzip
+	# The API itself sets security headers; Caddy adds the one only a TLS terminator can.
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy api:4000 {
+		# Health checks so a restarting api is not sent traffic.
+		health_uri /api/v1/health/ready
+		health_interval 10s
+	}
+	log {
+		output stdout
+		format json
+	}
+}

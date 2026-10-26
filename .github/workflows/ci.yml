@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -t cab-backend:ci backend
+      - name: Image boots and refuses an unsafe config
+        # NODE_ENV=production with mock providers must fail fast; proves the image starts our code.
+        run: |
+          set +e
+          out=$(docker run --rm -e NODE_ENV=production -e PROVIDER_MODE=mock             -e MONGODB_URI=mongodb://x -e REDIS_URL=redis://x             -e JWT_ACCESS_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa             -e JWT_REFRESH_SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cab-backend:ci 2>&1)
+          echo "$out"
+          echo "$out" | grep -q "mock providers are not allowed in production"
+      - name: Live mode refuses integrations left on a mock
+        # PROVIDER_MODE=live with default (mock) drivers must fail fast and name them.
+        run: |
+          set +e
+          out=$(docker run --rm -e NODE_ENV=staging -e PROVIDER_MODE=live \
+            -e MONGODB_URI=mongodb://x -e REDIS_URL=redis://x \
+            -e JWT_ACCESS_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            -e JWT_REFRESH_SECRET=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cab-backend:ci 2>&1)
+          echo "$out"
+          echo "$out" | grep -q "PAYMENTS_DRIVER: must be razorpay in live mode"
