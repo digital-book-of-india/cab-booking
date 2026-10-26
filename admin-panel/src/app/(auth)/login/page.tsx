@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('admin@platform.internal');
-  const [password, setPassword] = useState('admin@123');
+  const [password, setPassword] = useState('Admin@123456');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,25 +21,56 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
+    const redirectUrl =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('redirect') || '/customers'
+        : '/customers';
+
     try {
       if (!mfaChallengeId) {
-        const res = await apiClient.post('/admin/auth/login', { email, password });
-        if (res.data.data.mfaRequired) {
-          setMfaChallengeId(res.data.data.challengeId);
-        } else {
-          setUser(res.data.data.user);
-          router.push('/');
+        let res;
+        try {
+          res = await apiClient.post('/auth/staff/login', { email, password });
+        } catch {
+          res = await apiClient.post('/admin/auth/login', { email, password });
+        }
+
+        const data = res.data?.data || res.data;
+        if (data?.mfaRequired) {
+          setMfaChallengeId(data.mfaToken || data.challengeId);
+        } else if (data?.user) {
+          setUser(data.user, data.accessToken);
+          router.push(redirectUrl);
         }
       } else {
-        const res = await apiClient.post('/admin/auth/mfa/verify', {
-          challengeId: mfaChallengeId,
-          mfaCode,
-        });
-        setUser(res.data.data.user);
-        router.push('/');
+        let res;
+        try {
+          res = await apiClient.post('/auth/staff/mfa', {
+            mfaToken: mfaChallengeId,
+            code: mfaCode,
+          });
+        } catch {
+          res = await apiClient.post('/admin/auth/mfa/verify', {
+            challengeId: mfaChallengeId,
+            mfaCode,
+          });
+        }
+
+        const data = res.data?.data || res.data;
+        // Normalize: backend returns { id, role }, store expects AdminUser shape
+        const rawUser = data.user;
+        const adminUser = {
+          id: rawUser?.id || rawUser?._id || '',
+          name: rawUser?.name || 'Admin',
+          email: rawUser?.email || email,
+          role: rawUser?.role || 'SUPER_ADMIN',
+          status: rawUser?.status || rawUser?.accountStatus || 'ACTIVE',
+        };
+        setUser(adminUser as any, data.accessToken);
+        router.push(redirectUrl);
       }
     } catch (err: any) {
-      setError(err?.message || 'Authentication failed. Please verify credentials.');
+      setError(err?.response?.data?.error?.message || err?.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
-﻿'use client';
+'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
@@ -22,6 +23,8 @@ import {
   Building2,
   Star,
   Activity,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -47,6 +50,20 @@ const NAV_ITEMS = [
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const [unauthAlert, setUnauthAlert] = useState<{ dept?: string; path?: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('unauthorized') === 'true') {
+      setUnauthAlert({
+        dept: params.get('dept') || 'Restricted Department',
+        path: params.get('deniedPath') || '',
+      });
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -116,7 +133,31 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 bg-slate-50">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8 bg-slate-50">
+          {unauthAlert && (
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between shadow-xs animate-fadeIn">
+              <div className="flex items-center space-x-3">
+                <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0" />
+                <div>
+                  <strong className="font-bold text-rose-900 block text-xs">
+                    Access Denied (Route-Level RBAC Security)
+                  </strong>
+                  <span className="text-[11px] text-rose-700">
+                    Your current account role does not have authorization to access{' '}
+                    <strong>{unauthAlert.dept}</strong> ({unauthAlert.path}). You were safely redirected to the operational overview.
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setUnauthAlert(null)}
+                className="p-1 text-rose-400 hover:text-rose-700 rounded transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

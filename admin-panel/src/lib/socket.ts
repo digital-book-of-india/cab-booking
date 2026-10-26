@@ -1,0 +1,156 @@
+import { io, Socket } from 'socket.io-client';
+
+let socketInstance: Socket | null = null;
+
+const SOCKET_SERVER_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  (process.env.NEXT_PUBLIC_API_BASE_URL
+    ? process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/api\/v1\/?$/, '')
+    : 'http://localhost:4000');
+
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+}
+
+/**
+ * Returns the singleton Socket.IO client instance.
+ * Connects lazily or updates token if already created.
+ */
+export function getSocket(): Socket {
+  const token = getAuthToken();
+
+  if (!socketInstance) {
+    socketInstance = io(SOCKET_SERVER_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      auth: {
+        token: token || '',
+      },
+      extraHeaders: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+      reconnection: true,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('⚡ Socket connected to backend radar:', socketInstance?.id);
+    });
+
+    socketInstance.on('connect_error', (err) => {
+      console.warn('⚠️ Socket connection error:', err.message);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('🔌 Socket disconnected:', reason);
+    });
+
+    socketInstance.on('hello', (data) => {
+      console.log('👋 Socket HELLO handshake acknowledged:', data);
+    });
+  } else {
+    // If token changed, update socket auth
+    if (token && socketInstance.auth && (socketInstance.auth as any).token !== token) {
+      (socketInstance.auth as any).token = token;
+    }
+  }
+
+  return socketInstance;
+}
+
+/**
+ * Ensures connection is active.
+ */
+export function connectSocket(): Socket {
+  const socket = getSocket();
+  const token = getAuthToken();
+  if (token) {
+    (socket.auth as any).token = token;
+  }
+  if (!socket.connected) {
+    socket.connect();
+  }
+  return socket;
+}
+
+/**
+ * Disconnects socket cleanly.
+ */
+export function disconnectSocket(): void {
+  if (socketInstance) {
+    socketInstance.disconnect();
+    socketInstance = null;
+  }
+}
+
+export interface DriverLocationPayload {
+  driverId: string;
+  userId?: string;
+  lat: number;
+  lng: number;
+  headingDegrees?: number;
+  speedKmh?: number;
+  recordedAt?: string;
+}
+
+/**
+ * Convenience helper to subscribe to driver location telemetry events.
+ * Listens to both 'driver.location.updated' and standard 'driver:location' envelope.
+ */
+export function onDriverLocation(
+  callback: (payload: DriverLocationPayload) => void
+): () => void {
+  const socket = getSocket();
+
+  const handleUpdate = (payload: any) => {
+    // Unpack envelope if wrapped
+    const data = payload?.data || payload;
+    if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+      callback({
+        driverId: data.driverId || data.userId,
+        userId: data.userId,
+        lat: data.lat,
+        lng: data.lng,
+        headingDegrees: data.headingDegrees ?? 0,
+        speedKmh: data.speedKmh ?? 0,
+        recordedAt: data.recordedAt || new Date().toISOString(),
+      });
+    }
+  };
+
+  socket.on('driver.location.updated', handleUpdate);
+  socket.on('driver:location', handleUpdate);
+
+  return () => {
+    socket.off('driver.location.updated', handleUpdate);
+    socket.off('driver:location', handleUpdate);
+  };
+}
+
+/**
+ * Triggers dev/ops driver simulation movement ping.
+ */
+export function emitSimulateLocation(
+  driverId: string,
+  lat: number,
+  lng: number,
+  headingDegrees = 0,
+  speedKmh = 35
+): void {
+  const socket = getSocket();
+  if (socket.connected) {
+    socket.emit('ops:simulate_driver_location', {
+      driverId,
+      lat,
+      lng,
+      headingDegrees,
+      speedKmh,
+    });
+  }
+}

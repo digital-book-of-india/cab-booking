@@ -1,4 +1,4 @@
-﻿export type Role =
+export type Role =
   | 'CUSTOMER'
   | 'DRIVER'
   | 'OPS'
@@ -201,15 +201,23 @@ export interface RideRecord {
 export interface DispatchQueueItem {
   bookingId: string;
   customerId: string;
-  customerName: string;
-  customerPhoneMasked: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerPhoneMasked?: string;
+  categoryId?: string;
   categoryName: string;
+  zoneId?: string;
+  rideType?: string;
+  tripKind?: string;
   pickup: LocationPoint;
   drop: LocationPoint;
   estimatedFarePaise: number;
-  status: 'REQUESTED' | 'DISPATCHING' | 'NO_DRIVER_FOUND';
+  status: 'REQUESTED' | 'DISPATCHING' | 'NO_DRIVER_FOUND' | string;
   dispatchAttempts: number;
-  createdAt: string;
+  redispatchCount?: number;
+  requestedAt?: string;
+  waitingSeconds?: number;
+  createdAt?: string;
 }
 
 export interface RideReceipt {
@@ -229,18 +237,26 @@ export interface RideReceipt {
   fare: FareBreakdown;
 }
 
+export interface GeoJsonPolygon {
+  type: 'Polygon';
+  coordinates: number[][][]; // [ [ [lng, lat], [lng, lat], ... ] ]
+}
+
 export interface ServiceZone {
   id: string;
+  code?: string;
   name: string;
-  cityId: string;
-  cityName: string;
-  polygon: Array<[number, number]>;
+  cityId?: string;
+  cityName?: string;
+  cityCode?: string;
+  polygon: GeoJsonPolygon | Array<[number, number]>;
   active: boolean;
-  operatingHours: {
+  operatingHours?: {
     start: string;
     end: string;
-  };
-  createdAt: string;
+  } | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PricingConfig {
@@ -511,3 +527,32 @@ export interface CouponItem {
   active: boolean;
   createdAt: string;
 }
+
+export interface CustomerListItem {
+  userId: string;
+  role: 'CUSTOMER';
+  phone: string;
+  name: string | null;
+  accountStatus: AccountStatus;
+  createdAt: string;
+  bookingRestriction?: 'PAYMENT_REQUIRED' | 'RESTRICTED' | null;
+}
+
+export interface CustomerProfileInfo {
+  email: string | null;
+  ratingAvg: number | null;
+  ratingCount: number;
+  bookingRestricted: boolean;
+  bookingRestrictionReason: string | null;
+  bookingRestrictedAt: string | null;
+}
+
+export interface CustomerDetail extends CustomerListItem {
+  phoneVerifiedAt: string | null;
+  liveSessions: number;
+  bookingCount: number;
+  totalSpentPaise?: number;
+  walletBalancePaise?: number;
+  customer?: CustomerProfileInfo | null;
+  recentBookings?: any[];
+}

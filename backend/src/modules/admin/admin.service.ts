@@ -9,6 +9,7 @@ import { Booking, type BookingStatus } from '../bookings/booking.model';
 import { BookingEvent } from '../bookings/bookingEvent.model';
 import { CustomerProfile } from '../customers/customerProfile.model';
 import { ServiceZone } from '../zones/serviceZone.model';
+import { CabCategory } from '../categories/cabCategory.model';
 import type { DispatchService } from '../dispatch/dispatch.service';
 import { RideOffer } from '../dispatch/rideOffer.model';
 import { DriverDocument } from '../drivers/driverDocument.model';
@@ -104,27 +105,68 @@ export function createAdminService(deps: {
           .limit(limit)
           .lean(),
       ]);
-      return { items: rows.map(userRow), meta: pageMeta(page, limit, total) };
+      const customerIds = rows.filter((r) => r.role === 'CUSTOMER').map((r) => r._id);
+      const profiles =
+        customerIds.length > 0
+          ? await CustomerProfile.find({ userId: { $in: customerIds } }).lean()
+          : [];
+      const profileByUserId = new Map(profiles.map((p) => [p.userId.toString(), p]));
+
+      return {
+        items: rows.map((u) => {
+          const row = userRow(u);
+          const cp = profileByUserId.get(row.userId);
+          return {
+            ...row,
+            bookingRestriction: cp?.bookingRestricted
+              ? cp.bookingRestrictionReason || 'RESTRICTED'
+              : null,
+          };
+        }),
+        meta: pageMeta(page, limit, total),
+      };
     },
 
     async userDetail(userId: string) {
       const user = await User.findById(userId).lean();
       if (!user) throw new AppError('NOT_FOUND');
-      const [profile, bookingCount, liveSessions] = await Promise.all([
-        user.role === 'DRIVER' ? DriverProfile.findOne({ userId: user._id }).lean() : null,
-        user.role === 'CUSTOMER' ? Booking.countDocuments({ customerId: user._id }) : null,
-        Session.countDocuments({ userId: user._id, revokedAt: null, expiresAt: { $gt: now() } }),
-      ]);
+      const [driverProfile, customerProfile, bookingCount, liveSessions, totalSpentAgg] =
+        await Promise.all([
+          user.role === 'DRIVER' ? DriverProfile.findOne({ userId: user._id }).lean() : null,
+          user.role === 'CUSTOMER' ? CustomerProfile.findOne({ userId: user._id }).lean() : null,
+          user.role === 'CUSTOMER' ? Booking.countDocuments({ customerId: user._id }) : null,
+          Session.countDocuments({ userId: user._id, revokedAt: null, expiresAt: { $gt: now() } }),
+          user.role === 'CUSTOMER'
+            ? Booking.aggregate([
+                { $match: { customerId: user._id, status: 'COMPLETED' } },
+                { $group: { _id: null, totalSpentPaise: { $sum: '$finalFarePaise' } } },
+              ])
+            : null,
+        ]);
       return {
         ...userRow(user),
         phoneVerifiedAt: user.phoneVerifiedAt ?? null,
         liveSessions,
         bookingCount,
-        driver: profile
+        totalSpentPaise: totalSpentAgg?.[0]?.totalSpentPaise ?? 0,
+        driver: driverProfile
           ? {
-              driverId: profile._id.toString(),
-              approvalStatus: profile.approvalStatus,
-              onlineStatus: profile.onlineStatus,
+              driverId: driverProfile._id.toString(),
+              approvalStatus: driverProfile.approvalStatus,
+              onlineStatus: driverProfile.onlineStatus,
+            }
+          : null,
+        customer: customerProfile
+          ? {
+              email: customerProfile.email ?? null,
+              ratingAvg:
+                customerProfile.ratingCount > 0
+                  ? Number((customerProfile.ratingSum / customerProfile.ratingCount).toFixed(1))
+                  : null,
+              ratingCount: customerProfile.ratingCount ?? 0,
+              bookingRestricted: Boolean(customerProfile.bookingRestricted),
+              bookingRestrictionReason: customerProfile.bookingRestrictionReason ?? null,
+              bookingRestrictedAt: customerProfile.bookingRestrictedAt ?? null,
             }
           : null,
       };
@@ -579,16 +621,30 @@ export function createAdminService(deps: {
           .lean(),
       ]);
 
+      const customerIds = rows.map((r) => r.customerId);
+      const categoryIds = rows.map((r) => r.categoryId);
+      const [customers, categories] = await Promise.all([
+        User.find({ _id: { $in: customerIds } }).select('name phone').lean(),
+        CabCategory.find({ _id: { $in: categoryIds } }).select('name code').lean(),
+      ]);
+      const customerById = new Map(customers.map((c) => [c._id.toString(), c]));
+      const categoryById = new Map(categories.map((c) => [c._id.toString(), c]));
+
       return {
         items: rows.map((b) => {
           const waitingSeconds = Math.max(
             0,
             Math.floor((now().getTime() - new Date(b.requestedAt).getTime()) / 1000),
           );
+          const c = customerById.get(b.customerId.toString());
+          const cat = categoryById.get(b.categoryId.toString());
           return {
             bookingId: b.publicId,
             customerId: b.customerId.toString(),
+            customerName: c?.name ?? null,
+            customerPhone: c?.phone ?? null,
             categoryId: b.categoryId.toString(),
+            categoryName: cat?.name ?? 'Standard Cab',
             zoneId: b.zoneId.toString(),
             status: b.status,
             rideType: b.rideType ?? 'INSTANT',

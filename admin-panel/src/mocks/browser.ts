@@ -1,4 +1,4 @@
-﻿import { setupWorker } from 'msw/browser';
+import { setupWorker } from 'msw/browser';
 import { authHandlers } from './handlers/auth.handlers';
 import { driverHandlers } from './handlers/driver.handlers';
 import { rideHandlers } from './handlers/ride.handlers';
@@ -6,6 +6,7 @@ import { pricingHandlers } from './handlers/pricing.handlers';
 import { financeHandlers } from './handlers/finance.handlers';
 import { governanceHandlers } from './handlers/governance.handlers';
 import { operationsHandlers } from './handlers/operations.handlers';
+import { customerHandlers } from './handlers/customer.handlers';
 
 export const worker = setupWorker(
   ...authHandlers,
@@ -14,5 +15,6 @@ export const worker = setupWorker(
   ...pricingHandlers,
   ...financeHandlers,
   ...governanceHandlers,
-  ...operationsHandlers
+  ...operationsHandlers,
+  ...customerHandlers
 );

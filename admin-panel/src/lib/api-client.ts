@@ -1,4 +1,4 @@
-﻿import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { ApiErrorResponse } from '@/types';
 
 export const apiClient = axios.create({
@@ -14,6 +14,15 @@ apiClient.interceptors.request.use(
     if (!config.headers['X-Request-Id']) {
       config.headers['X-Request-Id'] = `req_${Math.random().toString(36).substring(2, 10)}`;
     }
+
+    // Attach JWT Authorization header
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      if (token && !config.headers['Authorization']) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
