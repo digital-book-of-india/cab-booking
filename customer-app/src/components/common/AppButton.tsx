@@ -1,31 +1,32 @@
-import React from "react";
+import React from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  StyleProp,
   StyleSheet,
   Text,
   ViewStyle,
-} from "react-native";
+} from 'react-native';
 
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/colors";
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/colors';
 
-type Props = {
+export type AppButtonProps = {
   title: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: "primary" | "outline";
-  style?: ViewStyle;
+  variant?: 'primary' | 'outline';
+  style?: StyleProp<ViewStyle>;
 };
 
-export default function AppButton({
+export function AppButton({
   title,
   onPress,
   loading = false,
   disabled = false,
-  variant = "primary",
+  variant = 'primary',
   style,
-}: Props) {
+}: AppButtonProps) {
   const unavailable = disabled || loading;
 
   return (
@@ -36,7 +37,7 @@ export default function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        variant === "primary" ? styles.primary : styles.outline,
+        variant === 'primary' ? styles.primary : styles.outline,
         unavailable && styles.disabled,
         pressed && !unavailable && styles.pressed,
         style,
@@ -44,13 +45,13 @@ export default function AppButton({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "primary" ? COLORS.white : COLORS.primary}
+          color={variant === 'primary' ? COLORS.white : COLORS.primary}
         />
       ) : (
         <Text
           style={[
-            styles.label,
-            variant === "primary" ? styles.primaryLabel : styles.outlineLabel,
+            styles.text,
+            variant === 'primary' ? styles.primaryText : styles.outlineText,
           ]}
         >
           {title}
@@ -60,36 +61,39 @@ export default function AppButton({
   );
 }
 
+export default AppButton;
+
 const styles = StyleSheet.create({
   button: {
-    minHeight: 52,
-    paddingHorizontal: SPACING.lg,
+    height: 52,
     borderRadius: RADIUS.md,
-    alignItems: "center",
-    justifyContent: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
   },
   primary: {
     backgroundColor: COLORS.primary,
   },
   outline: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
     borderColor: COLORS.primary,
   },
-  label: {
-    fontSize: TYPOGRAPHY.body,
-    fontWeight: "600",
-  },
-  primaryLabel: {
-    color: COLORS.white,
-  },
-  outlineLabel: {
-    color: COLORS.primary,
-  },
   disabled: {
-    opacity: 0.5,
+    backgroundColor: COLORS.disabled,
+    borderColor: COLORS.disabled,
   },
   pressed: {
     opacity: 0.8,
+  },
+  text: {
+    fontSize: TYPOGRAPHY.body,
+    fontWeight: '700',
+  },
+  primaryText: {
+    color: COLORS.white,
+  },
+  outlineText: {
+    color: COLORS.primary,
   },
 });

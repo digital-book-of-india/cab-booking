@@ -1,69 +1,79 @@
-import React from "react";
+import React from 'react';
 import {
   StyleSheet,
   Text,
   TextInput,
   TextInputProps,
   View,
-} from "react-native";
+} from 'react-native';
 
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from "../../constants/colors";
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/colors';
 
-type Props = TextInputProps & {
-  label: string;
+export type AppInputProps = TextInputProps & {
+  label?: string;
   error?: string;
 };
 
-export default function AppInput({
+export function AppInput({
   label,
   error,
   style,
   ...inputProps
-}: Props) {
+}: AppInputProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {Boolean(label) && <Text style={styles.label}>{label}</Text>}
 
       <TextInput
         {...inputProps}
-        accessibilityLabel={label}
+        accessibilityLabel={label || inputProps.placeholder}
         placeholderTextColor={COLORS.textSecondary}
-        style={[styles.input, error ? styles.inputError : undefined, style]}
+        style={[
+          styles.input,
+          error ? styles.inputError : undefined,
+          inputProps.multiline ? styles.multiline : undefined,
+          style,
+        ]}
       />
 
-      {error ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {error}
-        </Text>
-      ) : null}
+      {Boolean(error) && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 }
 
+export default AppInput;
+
 const styles = StyleSheet.create({
   container: {
-    gap: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   label: {
+    fontSize: TYPOGRAPHY.caption + 1,
+    fontWeight: '600',
     color: COLORS.text,
-    fontSize: TYPOGRAPHY.caption,
-    fontWeight: "600",
+    marginBottom: SPACING.xs,
   },
   input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    height: 48,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     paddingHorizontal: SPACING.md,
     fontSize: TYPOGRAPHY.body,
     color: COLORS.text,
+    backgroundColor: COLORS.surface,
+  },
+  multiline: {
+    height: 80,
+    paddingTop: SPACING.sm,
+    textAlignVertical: 'top',
   },
   inputError: {
     borderColor: COLORS.error,
   },
   error: {
-    color: COLORS.error,
     fontSize: TYPOGRAPHY.caption,
+    color: COLORS.error,
+    marginTop: SPACING.xs,
   },
 });
