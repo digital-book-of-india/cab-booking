@@ -1,4 +1,5 @@
-﻿import { formatPaiseToInr, parseInrInputToPaise } from '../lib/currency';
+import { formatPaiseToInr, parseInrInputToPaise } from '../lib/currency';
+import { generateUUID, getIdempotencyKey, clearIdempotencyKey } from '../lib/idempotency';
 import { Role } from '../types';
 
 export function runDay8VerificationSuite(): { total: number; passed: number; failed: number; results: Array<{ name: string; status: 'PASS' | 'FAIL'; message: string }> } {
@@ -28,8 +29,9 @@ export function runDay8VerificationSuite(): { total: number; passed: number; fai
       threwOnInvalid = true;
     }
     assert('Currency: Invalid syntax rejected', threwOnInvalid, 'Invalid formatted string "25-3" threw validation error');
-  } catch (err: any) {
-    assert('Currency: Unexpected exception', false, err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    assert('Currency: Unexpected exception', false, msg);
   }
 
   // 2. RBAC Action Matrix Assertions
@@ -50,11 +52,18 @@ export function runDay8VerificationSuite(): { total: number; passed: number; fai
   const docNumberLast4 = '8834';
   assert('PII: Document Last 4 redaction', docNumberLast4.length === 4 && /^\d{4}$/.test(docNumberLast4), 'Document ID reveals only terminal 4 digits');
 
-  // 4. Idempotency Key Format Test
-  const generateIdempotencyKey = () => `idemp_${Math.random().toString(36).substring(2, 10)}_${Date.now()}`;
-  const key1 = generateIdempotencyKey();
-  const key2 = generateIdempotencyKey();
-  assert('Idempotency: Key uniqueness', key1 !== key2 && key1.startsWith('idemp_'), 'Idempotency keys generated uniquely with standard prefix');
+  // 4. Idempotency Key Format Test (UUID RFC 4122 v4)
+  const key1 = generateUUID();
+  const key2 = generateUUID();
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  assert('Idempotency: Key uniqueness', key1 !== key2, 'UUIDs generated independently are unique');
+  assert('Idempotency: RFC 4122 v4 format', uuidRegex.test(key1) && uuidRegex.test(key2), 'Idempotency keys adhere to RFC 4122 v4 UUID standard');
+
+  // Test retry preservation
+  const initialKey = getIdempotencyKey('refund', 'bk_123');
+  const retryKey = getIdempotencyKey('refund', 'bk_123');
+  assert('Idempotency: Retry preservation', initialKey === retryKey, 'Subsequent attempts reuse the identical idempotency key');
+  clearIdempotencyKey('refund', 'bk_123');
 
   const passed = results.filter((r) => r.status === 'PASS').length;
   const failed = results.filter((r) => r.status === 'FAIL').length;

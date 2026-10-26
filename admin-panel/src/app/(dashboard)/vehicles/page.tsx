@@ -1,29 +1,22 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Vehicle } from '@/types';
-import { Car, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchVehicles = async () => {
-    try {
+  const {
+    data: vehicles = [],
+    isLoading: loading,
+    refetch: fetchVehicles,
+  } = useQuery<Vehicle[]>({
+    queryKey: ['admin', 'vehicles'],
+    queryFn: async () => {
       const res = await apiClient.get('/admin/vehicles');
-      setVehicles(res.data.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchVehicles();
-  }, []);
+      return res.data.data;
+    },
+  });
 
   const handleVerify = async (vehicleId: string, status: 'VERIFIED' | 'REJECTED') => {
     await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {

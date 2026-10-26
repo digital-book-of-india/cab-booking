@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -9,8 +9,7 @@ import {
   Car,
   ShieldAlert,
   CreditCard,
-  Clock,
-  ArrowRight
+  Clock
 } from 'lucide-react';
 import {
   AreaChart,
@@ -103,7 +102,7 @@ export default function MasterDashboardPage() {
             </div>
           </div>
           <p className="text-2xl font-bold text-slate-900 font-mono">{formatPaiseToInr(stats.grossValuePaise)}</p>
-          <span className="text-[11px] text-indigo-600 font-semibold">Today's collection</span>
+          <span className="text-[11px] text-indigo-600 font-semibold">Today&apos;s collection</span>
         </div>
 
         {/* Drivers Online */}

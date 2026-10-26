@@ -1,11 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import Link from 'next/link';
+import type L from 'leaflet';
 import { apiClient } from '@/lib/api-client';
 import { ServiceZone } from '@/types';
-import { formatToIST } from '@/lib/currency';
-import { MapPin, Plus, CheckCircle2, Clock, Globe } from 'lucide-react';
+import { Plus, Clock, Globe } from 'lucide-react';
 
 export default function ServiceZonesPage() {
   const [zones, setZones] = useState<ServiceZone[]>([]);
@@ -17,7 +16,7 @@ export default function ServiceZonesPage() {
   const [operatingHoursEnd, setOperatingHoursEnd] = useState('23:59');
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   const fetchZones = async () => {
     try {
@@ -149,6 +148,18 @@ export default function ServiceZonesPage() {
                   placeholder="e.g. South Delhi Suburbs"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">City</label>
+                <input
+                  type="text"
+                  placeholder="e.g. New Delhi"
+                  value={cityName}
+                  onChange={(e) => setCityName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:outline-none"
                   required
                 />

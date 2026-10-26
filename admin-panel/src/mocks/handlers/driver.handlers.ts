@@ -1,5 +1,5 @@
-﻿import { http, HttpResponse } from 'msw';
-import { DriverProfile, Vehicle, CabCategory } from '@/types';
+import { http, HttpResponse } from 'msw';
+import { DriverProfile, Vehicle, CabCategory, DriverApprovalStatus, VehicleVerificationStatus } from '@/types';
 
 let mockDrivers: DriverProfile[] = [
   {
@@ -147,7 +147,7 @@ export const driverHandlers = [
   // Driver Approval / Rejection / Resubmission / Suspension
   http.patch('/api/v1/admin/drivers/:driverId/approval', async ({ params, request }) => {
     const body = (await request.json()) as { approvalStatus: string; reasonCode?: string; notes?: string };
-    mockDrivers = mockDrivers.map((d) => (d.id === params.driverId ? { ...d, approvalStatus: body.approvalStatus as any } : d));
+    mockDrivers = mockDrivers.map((d) => (d.id === params.driverId ? { ...d, approvalStatus: body.approvalStatus as DriverApprovalStatus } : d));
     return HttpResponse.json({ success: true, data: { updated: true, approvalStatus: body.approvalStatus }, meta: { requestId: 'req_drv_appr' } });
   }),
 
@@ -189,7 +189,7 @@ export const driverHandlers = [
   // Vehicle Verification Action
   http.patch('/api/v1/admin/vehicles/:vehicleId/verification', async ({ params, request }) => {
     const body = (await request.json()) as { status: string; reasonCode?: string };
-    mockVehicles = mockVehicles.map((v) => (v.id === params.vehicleId ? { ...v, verificationStatus: body.status as any } : v));
+    mockVehicles = mockVehicles.map((v) => (v.id === params.vehicleId ? { ...v, verificationStatus: body.status as VehicleVerificationStatus } : v));
     return HttpResponse.json({ success: true, data: { status: body.status }, meta: { requestId: 'req_veh_appr' } });
   }),
 

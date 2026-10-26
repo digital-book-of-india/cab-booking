@@ -1,18 +1,18 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import type L from 'leaflet';
 import { apiClient } from '@/lib/api-client';
 import { LiveDriverLocation } from '@/types';
-import { Radio, RefreshCw, Car, Compass, ShieldAlert } from 'lucide-react';
+import { Radio, RefreshCw } from 'lucide-react';
 
 export default function LiveMapPage() {
   const [drivers, setDrivers] = useState<LiveDriverLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDriver, setSelectedDriver] = useState<LiveDriverLocation | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<{ [id: string]: any }>({});
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Record<string, L.Marker>>({});
 
   const fetchLiveFleet = async () => {
     try {
@@ -91,7 +91,7 @@ export default function LiveMapPage() {
           className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
           title="Refresh Radar"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
         </button>
       </div>
 

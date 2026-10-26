@@ -1,4 +1,4 @@
-﻿import { setupWorker } from 'msw/browser';
+import { setupWorker } from 'msw/browser';
 import { authHandlers } from './handlers/auth.handlers';
 import { driverHandlers } from './handlers/driver.handlers';
 import { rideHandlers } from './handlers/ride.handlers';

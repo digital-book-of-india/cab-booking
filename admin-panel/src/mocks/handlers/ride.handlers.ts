@@ -1,7 +1,7 @@
 ﻿import { http, HttpResponse } from 'msw';
 import { LiveDriverLocation, RideRecord, DispatchQueueItem, RideReceipt } from '@/types';
 
-let mockLiveDrivers: LiveDriverLocation[] = [
+const mockLiveDrivers: LiveDriverLocation[] = [
   {
     driverId: 'drv_101',
     name: 'Rajesh Kumar Verma',

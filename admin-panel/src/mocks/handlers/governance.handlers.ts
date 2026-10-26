@@ -1,5 +1,5 @@
 ﻿import { http, HttpResponse } from 'msw';
-import { FeatureFlag, RbacUserItem, AuditLogEntry, SystemHealthData } from '@/types';
+import { FeatureFlag, RbacUserItem, AuditLogEntry, Role } from '@/types';
 
 let mockFeatureFlags: FeatureFlag[] = [
   {
@@ -52,7 +52,7 @@ let mockUsers: RbacUserItem[] = [
   { id: 'usr_005', name: 'Swati Jain', email: 'support@platform.internal', role: 'SUPPORT', status: 'ACTIVE', lastLoginAt: new Date(Date.now() - 14400000).toISOString() },
 ];
 
-let mockAuditLogs: AuditLogEntry[] = [
+const mockAuditLogs: AuditLogEntry[] = [
   {
     id: 'aud_9901',
     actorId: 'usr_001',
@@ -137,7 +137,7 @@ export const governanceHandlers = [
 
   // Reassign User Role (SUPER_ADMIN only)
   http.patch('/api/v1/admin/users/:userId/role', async ({ params, request }) => {
-    const body = (await request.json()) as { role: any };
+    const body = (await request.json()) as { role: Role };
     mockUsers = mockUsers.map((u) => (u.id === params.userId ? { ...u, role: body.role } : u));
     return HttpResponse.json({ success: true, data: { updated: true }, meta: { requestId: 'req_role_ok' } });
   }),

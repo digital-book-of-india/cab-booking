@@ -1,11 +1,13 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { runDay8VerificationSuite } from '@/tests/verification-matrix.test';
 import { ShieldCheck, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 
+type VerificationSuiteResult = ReturnType<typeof runDay8VerificationSuite>;
+
 export default function VerificationMatrixPage() {
-  const [suiteResult, setSuiteResult] = useState<any>(null);
+  const [suiteResult, setSuiteResult] = useState<VerificationSuiteResult | null>(null);
   const [running, setRunning] = useState(false);
 
   const executeSuite = () => {
@@ -18,7 +20,10 @@ export default function VerificationMatrixPage() {
   };
 
   useEffect(() => {
-    executeSuite();
+    const timer = setTimeout(() => {
+      setSuiteResult(runDay8VerificationSuite());
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -61,7 +66,7 @@ export default function VerificationMatrixPage() {
           </div>
 
           <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white overflow-hidden">
-            {suiteResult.results.map((r: any, idx: number) => (
+            {suiteResult.results.map((r, idx: number) => (
               <div key={idx} className="p-4 flex items-center justify-between text-xs hover:bg-slate-50/80 transition">
                 <div className="flex items-center space-x-3">
                   {r.status === 'PASS' ? (

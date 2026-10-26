@@ -34,7 +34,7 @@ let mockZones: ServiceZone[] = [
   },
 ];
 
-let mockPricingConfigs: PricingConfig[] = [
+const mockPricingConfigs: PricingConfig[] = [
   {
     id: 'pc_sedan_v12',
     name: 'Delhi Sedan Standard Tariff',

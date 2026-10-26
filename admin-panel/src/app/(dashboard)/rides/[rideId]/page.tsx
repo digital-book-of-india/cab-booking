@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
-import { use, useEffect, useState, useRef } from 'react';
+import { use, useEffect, useState, useRef, useCallback } from 'react';
+import type L from 'leaflet';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { RideRecord, RideReceipt } from '@/types';
@@ -29,20 +30,20 @@ export default function RideDetailPage({ params }: { params: Promise<{ rideId: s
   const [cancelLoading, setCancelLoading] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
-  const fetchRideData = async () => {
+  const fetchRideData = useCallback(async () => {
     try {
       const res = await apiClient.get(`/admin/rides/${rideId}`);
       setRide(res.data.data);
     } finally {
       setLoading(false);
     }
-  };
+  }, [rideId]);
 
   useEffect(() => {
     fetchRideData();
-  }, [rideId]);
+  }, [fetchRideData]);
 
   // Render Leaflet route polyline
   useEffect(() => {
@@ -251,7 +252,7 @@ export default function RideDetailPage({ params }: { params: Promise<{ rideId: s
                 </label>
                 <select
                   value={feeDecision}
-                  onChange={(e) => setFeeDecision(e.target.value as any)}
+                  onChange={(e) => setFeeDecision(e.target.value as 'WAIVE' | 'APPLY_STANDARD_FEE')}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white focus:outline-none"
                 >
                   <option value="WAIVE">Waive Cancellation Fee</option>

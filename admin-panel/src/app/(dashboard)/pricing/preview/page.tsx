@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -6,10 +6,20 @@ import { apiClient } from '@/lib/api-client';
 import { formatPaiseToInr } from '@/lib/currency';
 import { ArrowLeft, Calculator } from 'lucide-react';
 
+interface SimulatedFareResult {
+  configVersion: number;
+  breakdown: {
+    baseFarePaise: number;
+    distanceFarePaise: number;
+    timeFarePaise: number;
+    estimatedTotalPaise: number;
+  };
+}
+
 export default function PricingPreviewPage() {
   const [distanceKm, setDistanceKm] = useState('18.5');
   const [durationMins, setDurationMins] = useState('45');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SimulatedFareResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleCalculate = async (e: React.FormEvent) => {

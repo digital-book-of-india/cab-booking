@@ -1,34 +1,35 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { apiClient } from '@/lib/api-client';
 import { SystemHealthData } from '@/types';
 import { formatToIST } from '@/lib/currency';
-import { Activity, RefreshCw, Database, Server, Cpu, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, RefreshCw, Database, Server, Cpu } from 'lucide-react';
 
 export default function SystemHealthPage() {
-  const [health, setHealth] = useState<SystemHealthData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isDegradedSimulation, setIsDegradedSimulation] = useState(false);
 
-  const fetchHealthProbes = async () => {
-    setLoading(true);
-    try {
-      // Axios interceptor will catch 503 from /health/ready without crashing
-      const res = await apiClient.get('/health/ready');
-      setHealth(res.data.data);
-    } catch (err: any) {
-      if (err?.data) {
-        setHealth(err.data);
+  const {
+    data: health = null,
+    isLoading: loading,
+    refetch: fetchHealthProbes,
+  } = useQuery<SystemHealthData | null>({
+    queryKey: ['admin', 'health'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/health/ready');
+        return res.data.data;
+      } catch (err: unknown) {
+        if (isAxiosError(err) && err.response?.data) {
+          const resData = err.response.data as { data?: SystemHealthData };
+          if (resData.data) return resData.data;
+        }
+        return null;
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHealthProbes();
-  }, []);
+    },
+  });
 
   const toggleSimulateDegraded = async () => {
     const res = await apiClient.post('/admin/health/toggle-degraded');
@@ -57,10 +58,10 @@ export default function SystemHealthPage() {
             {isDegradedSimulation ? 'Revert Degraded Simulation' : 'Simulate 503 Degraded Probe'}
           </button>
           <button
-            onClick={fetchHealthProbes}
+            onClick={() => fetchHealthProbes()}
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Poll Health</span>
           </button>
         </div>

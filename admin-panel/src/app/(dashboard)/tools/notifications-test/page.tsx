@@ -1,14 +1,20 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { Send, CheckCircle2, Clock } from 'lucide-react';
+import { Send, CheckCircle2 } from 'lucide-react';
+
+interface NotificationTestResult {
+  deliveryStatus: string;
+  messageId: string;
+  gatewayLatencyMs: number;
+}
 
 export default function NotificationsTestPage() {
   const [channel, setChannel] = useState<'SMS' | 'FCM_PUSH'>('FCM_PUSH');
   const [recipient, setRecipient] = useState('+919811022331');
   const [message, setMessage] = useState('Your ride OTP is 8841. Share only with driver upon pickup.');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<NotificationTestResult | null>(null);
   const [testing, setTesting] = useState(false);
 
   const handleTestSubmit = async (e: React.FormEvent) => {
@@ -41,7 +47,7 @@ export default function NotificationsTestPage() {
               <label className="block font-semibold uppercase tracking-wider text-slate-400">Target Channel</label>
               <select
                 value={channel}
-                onChange={(e) => setChannel(e.target.value as any)}
+                onChange={(e) => setChannel(e.target.value as 'SMS' | 'FCM_PUSH')}
                 className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white focus:outline-none"
               >
                 <option value="FCM_PUSH">Firebase Cloud Messaging (Push)</option>

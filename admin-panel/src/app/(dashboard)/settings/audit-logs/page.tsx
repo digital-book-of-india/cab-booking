@@ -1,10 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { AuditLogEntry } from '@/types';
 import { formatToIST } from '@/lib/currency';
-import { Eye, Shield, FileText } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);

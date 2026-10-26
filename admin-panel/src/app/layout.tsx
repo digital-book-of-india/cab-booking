@@ -1,5 +1,6 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { MswProvider } from '@/components/MswProvider';
+import { QueryProvider } from '@/components/QueryProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-slate-950">
-        <MswProvider>{children}</MswProvider>
+        <MswProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </MswProvider>
       </body>
     </html>
   );

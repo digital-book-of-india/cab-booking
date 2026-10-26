@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { RideRecord, RideStatus } from '@/types';
 import { formatPaiseToInr, formatToIST } from '@/lib/currency';
@@ -17,30 +18,23 @@ const STATUS_FILTERS: { label: string; value: RideStatus | 'ALL' }[] = [
 ];
 
 export default function RideExplorerPage() {
-  const [rides, setRides] = useState<RideRecord[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<RideStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [activeSearch, setActiveSearch] = useState('');
 
-  const fetchRides = async () => {
-    setLoading(true);
-    try {
+  const { data: rides = [], isLoading: loading } = useQuery<RideRecord[]>({
+    queryKey: ['admin', 'rides', selectedStatus, activeSearch],
+    queryFn: async () => {
       const statusParam = selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : '';
-      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+      const searchParam = activeSearch ? `&search=${encodeURIComponent(activeSearch)}` : '';
       const res = await apiClient.get(`/admin/rides?page=1&limit=50${statusParam}${searchParam}`);
-      setRides(res.data.data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRides();
-  }, [selectedStatus]);
+      return res.data.data;
+    },
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchRides();
+    setActiveSearch(search);
   };
 
   return (

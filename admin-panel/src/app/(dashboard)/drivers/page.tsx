@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { DriverProfile, DriverApprovalStatus } from '@/types';
 import { formatToIST } from '@/lib/currency';
@@ -16,22 +17,14 @@ const STATUS_TABS: { label: string; status: DriverApprovalStatus }[] = [
 
 export default function DriversPage() {
   const [activeTab, setActiveTab] = useState<DriverApprovalStatus>('PENDING');
-  const [drivers, setDrivers] = useState<DriverProfile[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchDrivers = async () => {
-    setLoading(true);
-    try {
+  const { data: drivers = [], isLoading: loading } = useQuery<DriverProfile[]>({
+    queryKey: ['admin', 'drivers', activeTab],
+    queryFn: async () => {
       const res = await apiClient.get('/admin/drivers');
-      setDrivers(res.data.data.filter((d: DriverProfile) => d.approvalStatus === activeTab));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDrivers();
-  }, [activeTab]);
+      return (res.data.data as DriverProfile[]).filter((d: DriverProfile) => d.approvalStatus === activeTab);
+    },
+  });
 
   return (
     <div className="space-y-6">

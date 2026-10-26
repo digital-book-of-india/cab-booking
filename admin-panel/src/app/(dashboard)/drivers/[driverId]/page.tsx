@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { DriverProfile } from '@/types';
@@ -27,18 +28,18 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
   const [actionLoading, setActionLoading] = useState(false);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
 
-  const fetchDriver = async () => {
+  const fetchDriver = useCallback(async () => {
     try {
       const res = await apiClient.get(`/admin/drivers/${driverId}`);
       setDriver(res.data.data);
     } finally {
       setLoading(false);
     }
-  };
+  }, [driverId]);
 
   useEffect(() => {
     fetchDriver();
-  }, [driverId]);
+  }, [fetchDriver]);
 
   const handleApprove = async () => {
     if (!confirm('Approve driver onboarding and activate vehicle for service?')) return;
@@ -167,7 +168,7 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
               <button onClick={() => setPreviewDocUrl(null)} className="text-slate-400 hover:text-slate-900 text-xs font-bold">Close</button>
             </div>
             <div className="h-96 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-200">
-              <img src={previewDocUrl} alt="KYC Document Preview" className="h-full w-full object-contain" />
+              <Image src={previewDocUrl} alt="KYC Document Preview" width={800} height={600} unoptimized className="h-full w-full object-contain" />
             </div>
           </div>
         </div>

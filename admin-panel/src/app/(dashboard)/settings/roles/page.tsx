@@ -1,11 +1,10 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { RbacUserItem, Role } from '@/types';
 import { useAuthStore } from '@/store/auth-store';
-import { Shield, UserCog, CheckCircle2, Lock } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 const CANONICAL_ROLES: Role[] = [
   'SUPER_ADMIN',

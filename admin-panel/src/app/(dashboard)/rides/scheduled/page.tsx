@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { ScheduledRide } from '@/types';
 import { formatPaiseToInr, formatToIST } from '@/lib/currency';
-import { ArrowLeft, Clock, Calendar, XCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ScheduledRidesPage() {
   const [rides, setRides] = useState<ScheduledRide[]>([]);

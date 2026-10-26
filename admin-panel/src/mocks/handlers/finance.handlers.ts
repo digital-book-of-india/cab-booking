@@ -59,7 +59,7 @@ let mockPayments: PaymentAttempt[] = [
   },
 ];
 
-let mockReconciliations: GatewayReconciliationItem[] = [
+const mockReconciliations: GatewayReconciliationItem[] = [
   {
     id: 'rec_01',
     paymentId: 'pay_local_10004',
@@ -122,7 +122,7 @@ let mockOutstanding: OutstandingBalanceItem[] = [
   },
 ];
 
-let mockSettlements: SettlementBatch[] = [
+const mockSettlements: SettlementBatch[] = [
   {
     batchId: 'st_batch_2026_w42',
     period: '12 Oct 2026 - 18 Oct 2026',
@@ -136,7 +136,7 @@ let mockSettlements: SettlementBatch[] = [
   },
 ];
 
-let mockLedger: LedgerEntry[] = [
+const mockLedger: LedgerEntry[] = [
   {
     entryId: 'led_001',
     ownerType: 'DRIVER',
@@ -194,7 +194,7 @@ export const financeHandlers = [
   http.post('/api/v1/admin/cash-collections/:id/resolve', async ({ params, request }) => {
     const body = (await request.json()) as { action: string; reasonCode: string; notes?: string };
     mockCashDiscrepancies = mockCashDiscrepancies.map((c) =>
-      c.id === params.id ? { ...c, status: body.action as any } : c
+      c.id === params.id ? { ...c, status: body.action as CashCollectionDiscrepancy['status'] } : c
     );
     return HttpResponse.json({ success: true, data: { resolved: true }, meta: { requestId: 'req_cash_res' } });
   }),
@@ -212,7 +212,8 @@ export const financeHandlers = [
 
   // SUPER_ADMIN Write-Off
   http.post('/api/v1/admin/outstanding/:rideId/write-off', async ({ params, request }) => {
-    const body = (await request.json()) as { reasonCode: string; notes?: string };
+    const _body = (await request.json()) as { reasonCode: string; notes?: string };
+    void _body;
     mockOutstanding = mockOutstanding.map((o) => (o.rideId === params.rideId ? { ...o, status: 'WRITTEN_OFF' } : o));
     return HttpResponse.json({ success: true, data: { writtenOff: true }, meta: { requestId: 'req_writeoff' } });
   }),

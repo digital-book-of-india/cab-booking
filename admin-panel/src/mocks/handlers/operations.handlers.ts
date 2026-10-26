@@ -1,4 +1,4 @@
-﻿import { http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import {
   SosIncident,
   SupportTicket,
@@ -103,7 +103,7 @@ let mockCorporates: CorporateAccount[] = [
   },
 ];
 
-let mockInvoices: CorporateInvoice[] = [
+const mockInvoices: CorporateInvoice[] = [
   {
     invoiceId: 'inv_oct_2026_01',
     corporateAccountId: 'corp_601',
@@ -117,7 +117,7 @@ let mockInvoices: CorporateInvoice[] = [
   },
 ];
 
-let mockCoupons: CouponItem[] = [
+const mockCoupons: CouponItem[] = [
   {
     id: 'coup_01',
     code: 'FESTIVE50',
@@ -153,7 +153,7 @@ export const operationsHandlers = [
 
   // Resolve SOS Incident
   http.post('/api/v1/admin/sos/:incidentId/resolve', async ({ params, request }) => {
-    const body = (await request.json()) as { resolutionCategory: any; resolutionSummary: string };
+    const body = (await request.json()) as { resolutionCategory: SosIncident['resolutionCategory']; resolutionSummary: string };
     mockIncidents = mockIncidents.map((inc) =>
       inc.incidentId === params.incidentId
         ? {
@@ -194,7 +194,7 @@ export const operationsHandlers = [
   }),
 
   http.patch('/api/v1/admin/ratings/:ratingId/moderation', async ({ params, request }) => {
-    const body = (await request.json()) as { moderationStatus: any; reasonCode: string };
+    const body = (await request.json()) as { moderationStatus: ReviewRatingItem['moderationStatus']; reasonCode: string };
     mockRatings = mockRatings.map((r) =>
       r.ratingId === params.ratingId
         ? { ...r, moderationStatus: body.moderationStatus, moderationReason: body.reasonCode }
@@ -209,7 +209,7 @@ export const operationsHandlers = [
   }),
 
   http.patch('/api/v1/admin/corporate/accounts/:id/approval', async ({ params, request }) => {
-    const body = (await request.json()) as { status: any; reasonCode?: string };
+    const body = (await request.json()) as { status: CorporateAccount['status']; reasonCode?: string };
     mockCorporates = mockCorporates.map((c) => (c.id === params.id ? { ...c, status: body.status } : c));
     return HttpResponse.json({ success: true, data: { updated: true }, meta: { requestId: 'req_corp_appr' } });
   }),

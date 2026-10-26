@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { FeatureFlag } from '@/types';
 import { formatToIST } from '@/lib/currency';
-import { ToggleLeft, ToggleRight, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { ToggleLeft, ToggleRight } from 'lucide-react';
 
 export default function FeatureFlagsPage() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);

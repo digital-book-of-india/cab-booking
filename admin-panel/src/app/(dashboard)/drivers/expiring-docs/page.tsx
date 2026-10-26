@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { DriverProfile } from '@/types';
 import { formatToIST } from '@/lib/currency';
-import { ArrowLeft, Bell, Eye, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Bell, Eye } from 'lucide-react';
 
 export default function ExpiringDocsPage() {
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);

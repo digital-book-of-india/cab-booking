@@ -1,7 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { apiClient } from '@/lib/api-client';
+import { getIdempotencyKey, IDEMPOTENCY_HEADER } from '@/lib/idempotency';
 import { DispatchQueueItem, LiveDriverLocation } from '@/types';
 import { formatPaiseToInr } from '@/lib/currency';
 import { RefreshCw, AlertCircle } from 'lucide-react';
@@ -66,19 +68,20 @@ export default function DispatchQueuePage() {
         },
         {
           headers: {
-            'Idempotency-Key': `idemp_assign_${selectedBooking.bookingId}_${Date.now()}`,
+            [IDEMPOTENCY_HEADER]: getIdempotencyKey('assign', selectedBooking.bookingId),
           },
         }
       );
 
       setSelectedBooking(null);
       fetchQueueData();
-    } catch (err: any) {
-      if (err?.code === 'RIDE_ALREADY_ASSIGNED' || err?.status === 409) {
+    } catch (err: unknown) {
+      if (isAxiosError(err) && ((err.response?.data as { code?: string })?.code === 'RIDE_ALREADY_ASSIGNED' || err.response?.status === 409)) {
         setConflictError('Ride was accepted by another driver concurrently. Candidate queue refreshed.');
         fetchQueueData();
       } else {
-        setConflictError(err?.message || 'Assignment failed.');
+        const errMsg = isAxiosError(err) ? (err.response?.data as { message?: string })?.message || err.message : err instanceof Error ? err.message : 'Assignment failed.';
+        setConflictError(errMsg);
       }
     } finally {
       setActionLoading(false);
