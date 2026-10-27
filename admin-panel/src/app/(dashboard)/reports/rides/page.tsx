@@ -78,10 +78,13 @@ export default function RidesReportPage() {
   const bookings = summary?.bookings || {};
   const dispatch = summary?.dispatch || {};
 
-  // Export to Excel using actual data
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Export to Excel using actual data (Enforce 50,000-row cap)
   const exportToExcel = () => {
     if (!series || series.length === 0) return;
-    const rows = series.map((row: RideSeriesItem) => ({
+    const capped = series.slice(0, 50000);
+    const rows = capped.map((row: RideSeriesItem) => ({
       Date: row.date || row._id,
       TotalBookings: row.requested || row.total || 0,
       CompletedRides: row.completed || 0,
@@ -94,8 +97,9 @@ export default function RidesReportPage() {
     XLSX.writeFile(wb, `Platform_Rides_Report_${from}_to_${to}.xlsx`);
   };
 
-  // Download raw CSV from server
+  // Download raw CSV from server with 50,000 limit enforcement
   const downloadCsv = async () => {
+    setExportError(null);
     try {
       const params = new URLSearchParams();
       if (from) params.append('from', new Date(`${from}T00:00:00.000Z`).toISOString());
@@ -110,7 +114,12 @@ export default function RidesReportPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch {
+    } catch (err: unknown) {
+      const maybeAxios = err as { response?: { status?: number } };
+      if (maybeAxios?.response?.status === 422) {
+        setExportError('Export exceeds platform limit of 50,000 rows. Please select a shorter date range.');
+        return;
+      }
       exportToExcel();
     }
   };
@@ -182,6 +191,21 @@ export default function RidesReportPage() {
         <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{dateError}</span>
+        </div>
+      )}
+
+      {exportError && (
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>{exportError}</span>
+          </div>
+          <button
+            onClick={() => setExportError(null)}
+            className="text-amber-500 hover:text-amber-700 font-bold ml-4"
+          >
+            ✕
+          </button>
         </div>
       )}
 

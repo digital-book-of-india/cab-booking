@@ -56,14 +56,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('unauthorized') === 'true') {
-      setUnauthAlert({
-        dept: params.get('dept') || 'Restricted Department',
-        path: params.get('deniedPath') || '',
-      });
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
+      const dept = params.get('dept') || 'Restricted Department';
+      const path = params.get('deniedPath') || '';
+      window.history.replaceState({}, '', window.location.pathname);
+      const timer = setTimeout(() => {
+        setUnauthAlert({ dept, path });
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [pathname]);
+
+  const isMockMode = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -121,6 +124,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {isMockMode && (
+          <div className="bg-amber-400 text-slate-950 px-6 py-2 text-xs font-bold flex items-center justify-between shadow-xs">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-slate-950" />
+              <span>DEMO MODE ACTIVE: In-browser mock service worker is running. Real backend persistence is disabled.</span>
+            </div>
+            <span className="text-[10px] bg-slate-900 text-amber-300 px-2 py-0.5 rounded font-mono font-semibold">
+              NEXT_PUBLIC_USE_MOCKS=true
+            </span>
+          </div>
+        )}
         <header className="h-16 border-b border-slate-200 bg-white px-8 flex items-center justify-between shadow-xs">
           <div className="flex items-center space-x-3">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />

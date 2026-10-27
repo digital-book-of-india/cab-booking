@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
-import { CustomerListItem, CustomerDetail } from '@/types';
+import { CustomerDetail } from '@/types';
 
-let mockCustomers: (CustomerDetail & { restrictionReason?: string })[] = [
+const mockCustomers: (CustomerDetail & { restrictionReason?: string })[] = [
   {
     userId: 'usr_cust_01',
     role: 'CUSTOMER',

@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { ShieldCheck, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { AdminUser, Role, AccountStatus } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
-  const [email, setEmail] = useState('admin@platform.internal');
-  const [password, setPassword] = useState('Admin@123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -30,26 +31,9 @@ export default function LoginPage() {
       if (!mfaChallengeId) {
         let res;
         try {
-          try {
-            res = await apiClient.post('/auth/staff/login', { email, password });
-          } catch {
-            res = await apiClient.post('/admin/auth/login', { email, password });
-          }
-        } catch (apiErr: any) {
-          // Graceful fallback for local/internal admin credentials if backend auth endpoints are unmounted
-          if (email === 'admin@platform.internal' && (password === 'Admin@123456' || password === 'admin@123')) {
-            const adminUser = {
-              id: 'usr_admin_001',
-              name: 'Super Commander',
-              email: 'admin@platform.internal',
-              role: 'SUPER_ADMIN' as const,
-              status: 'ACTIVE' as const,
-            };
-            setUser(adminUser as any, 'mock_jwt_access_super_admin');
-            router.push(redirectUrl);
-            return;
-          }
-          throw apiErr;
+          res = await apiClient.post('/auth/staff/login', { email, password });
+        } catch {
+          res = await apiClient.post('/admin/auth/login', { email, password });
         }
 
         const data = res.data?.data || res.data;
@@ -62,49 +46,34 @@ export default function LoginPage() {
       } else {
         let res;
         try {
-          try {
-            res = await apiClient.post('/auth/staff/mfa', {
-              mfaToken: mfaChallengeId,
-              code: mfaCode,
-            });
-          } catch {
-            res = await apiClient.post('/admin/auth/mfa/verify', {
-              challengeId: mfaChallengeId,
-              mfaCode,
-            });
-          }
-        } catch (apiErr: any) {
-          if (mfaCode === '123456') {
-            const adminUser = {
-              id: 'usr_admin_001',
-              name: 'Super Commander',
-              email: 'admin@platform.internal',
-              role: 'SUPER_ADMIN' as const,
-              status: 'ACTIVE' as const,
-            };
-            setUser(adminUser as any, 'mock_jwt_access_super_admin');
-            router.push(redirectUrl);
-            return;
-          }
-          throw apiErr;
+          res = await apiClient.post('/auth/staff/mfa', {
+            mfaToken: mfaChallengeId,
+            code: mfaCode,
+          });
+        } catch {
+          res = await apiClient.post('/admin/auth/mfa/verify', {
+            challengeId: mfaChallengeId,
+            mfaCode,
+          });
         }
 
         const data = res.data?.data || res.data;
         const rawUser = data.user;
-        const adminUser = {
+        const adminUser: AdminUser = {
           id: rawUser?.id || rawUser?._id || '',
           name: rawUser?.name || 'Admin',
           email: rawUser?.email || email,
-          role: rawUser?.role || 'SUPER_ADMIN',
-          status: rawUser?.status || rawUser?.accountStatus || 'ACTIVE',
+          role: (rawUser?.role || 'SUPER_ADMIN') as Role,
+          status: (rawUser?.status || rawUser?.accountStatus || 'ACTIVE') as AccountStatus,
         };
-        setUser(adminUser as any, data.accessToken);
+        setUser(adminUser, data.accessToken);
         router.push(redirectUrl);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setError(
-        err?.response?.data?.error?.message ||
-          err?.message ||
+        apiErr?.response?.data?.error?.message ||
+          apiErr?.message ||
           'Authentication failed. Please verify credentials.'
       );
     } finally {
@@ -124,7 +93,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-1 text-xs text-slate-400">
             {mfaChallengeId
-              ? 'Enter the 6-digit authenticator code (Mock default: 123456)'
+              ? 'Enter the 6-digit authenticator code from your authenticator app'
               : 'Enter authorized administrative credentials to access operations'}
           </p>
         </div>
@@ -147,6 +116,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -159,6 +129,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -174,7 +145,7 @@ export default function LoginPage() {
                 maxLength={6}
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
-                placeholder="123456"
+                placeholder="••••••"
                 className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-center text-lg font-mono tracking-widest text-white focus:border-indigo-500 focus:outline-none"
                 required
               />

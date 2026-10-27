@@ -14,10 +14,8 @@ import {
   RefreshCw,
   Layers,
   Users,
-  Sliders,
   X,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 
 export default function CabCategoriesPage() {
@@ -49,22 +47,29 @@ export default function CabCategoriesPage() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const fetchCategories = useCallback(async () => {
-    setLoading(true);
+  const fetchCategories = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setLoading(true);
     try {
       const res = await apiClient.get('/admin/cab-categories');
       const list = res.data?.data || res.data || [];
       setCategories(Array.isArray(list) ? list : []);
-    } catch (err: any) {
-      console.warn('Failed to load cab categories:', err?.message || err);
-      showToast('Failed to load fleet categories', 'error');
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
+        (err as Error)?.message ||
+        'Failed to load fleet categories';
+      console.warn('Failed to load cab categories:', errorMsg);
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchCategories();
+    const timer = setTimeout(() => {
+      void fetchCategories();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchCategories]);
 
   // Toggle active/inactive
@@ -77,8 +82,11 @@ export default function CabCategoriesPage() {
         'success'
       );
       fetchCategories();
-    } catch (err: any) {
-      showToast(err.response?.data?.error?.message || 'Failed to toggle category status', 'error');
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
+        'Failed to toggle category status';
+      showToast(errorMsg, 'error');
     }
   };
 
@@ -107,8 +115,11 @@ export default function CabCategoriesPage() {
       setCapacity('4');
       setDisplayOrder('1');
       fetchCategories();
-    } catch (err: any) {
-      showToast(err.response?.data?.error?.message || 'Failed to create category', 'error');
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
+        'Failed to create category';
+      showToast(errorMsg, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -137,8 +148,11 @@ export default function CabCategoriesPage() {
       showToast(`Category "${editName}" updated successfully!`, 'success');
       setEditingCategory(null);
       fetchCategories();
-    } catch (err: any) {
-      showToast(err.response?.data?.error?.message || 'Failed to update category', 'error');
+    } catch (err: unknown) {
+      const errorMsg =
+        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
+        'Failed to update category';
+      showToast(errorMsg, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -195,7 +209,7 @@ export default function CabCategoriesPage() {
 
         <div className="flex items-center space-x-2.5">
           <button
-            onClick={fetchCategories}
+            onClick={() => fetchCategories()}
             disabled={loading}
             className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 shadow-xs transition"
           >
@@ -263,7 +277,7 @@ export default function CabCategoriesPage() {
           <div className="col-span-3 p-12 text-center rounded-2xl border border-dashed border-slate-300 bg-white text-slate-500 text-xs">
             <Car className="h-8 w-8 text-slate-400 mx-auto mb-2" />
             <p className="font-semibold text-slate-700">No cab categories configured.</p>
-            <p className="text-[11px] mt-1">Click "Add Category" above to configure your first vehicle tier.</p>
+            <p className="text-[11px] mt-1">Click &quot;Add Category&quot; above to configure your first vehicle tier.</p>
           </div>
         ) : (
           categories.map((cat) => (

@@ -58,28 +58,32 @@ export default function DriversPage() {
         : [];
 
       // Normalize items
-      const normalized = list.map((d: any) => ({
-        driverId: d.driverId || d.id,
-        userId: d.userId,
-        name: d.name || 'Unnamed Driver',
-        phone: d.phone || d.phoneMasked || '—',
-        approvalStatus: d.approvalStatus || activeTab,
-        onlineStatus: d.onlineStatus || 'OFFLINE',
-        city: d.city || 'Delhi NCR',
-        submittedAt: d.submittedAt,
-        createdAt: d.createdAt || new Date().toISOString(),
+      const normalized = list.map((d: Record<string, unknown>) => ({
+        driverId: (d.driverId as string) || (d.id as string) || '',
+        userId: d.userId as string | undefined,
+        name: (d.name as string) || 'Unnamed Driver',
+        phone: (d.phone as string) || (d.phoneMasked as string) || '—',
+        approvalStatus: (d.approvalStatus as DriverApprovalStatus) || activeTab,
+        onlineStatus: (d.onlineStatus as string) || 'OFFLINE',
+        city: (d.city as string) || 'Delhi NCR',
+        submittedAt: d.submittedAt as string | undefined,
+        createdAt: (d.createdAt as string) || new Date().toISOString(),
       }));
 
       setDrivers(normalized);
-    } catch (err: any) {
-      console.warn('Failed to load drivers:', err?.message || err);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      console.warn('Failed to load drivers:', apiErr?.message || err);
     } finally {
       setLoading(false);
     }
   }, [activeTab, searchQuery]);
 
   useEffect(() => {
-    fetchDrivers();
+    const timer = setTimeout(() => {
+      void fetchDrivers();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchDrivers]);
 
   return (

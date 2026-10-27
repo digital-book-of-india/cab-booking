@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
-import { ServiceZone, GeoJsonPolygon } from '@/types';
+import { ServiceZone } from '@/types';
 import ZoneCreateModal, { toGeoJsonPolygon } from '@/components/pricing/ZoneCreateModal';
 import {
   MapPin,
@@ -13,12 +13,9 @@ import {
   Globe,
   Layers,
   Search,
-  Filter,
   RefreshCw,
   Edit3,
-  Trash2,
   Eye,
-  Activity,
   AlertCircle,
   X,
   Save,
@@ -26,8 +23,6 @@ import {
   Maximize2,
   Pentagon,
   Square,
-  Shield,
-  Sliders,
 } from 'lucide-react';
 
 // Extract Leaflet latlngs to clean {lat, lng} array
@@ -117,7 +112,10 @@ export default function ServiceZonesPage() {
   }, []);
 
   useEffect(() => {
-    fetchZones();
+    const timer = setTimeout(() => {
+      void fetchZones();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchZones]);
 
   // 1. Initialize Leaflet Map with Geoman Free Controls

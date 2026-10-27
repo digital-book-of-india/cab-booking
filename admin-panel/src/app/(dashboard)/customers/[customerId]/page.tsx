@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   ArrowLeft,
   ShieldAlert,
@@ -23,7 +23,6 @@ import {
   ChevronRight,
   Activity,
   CheckCircle2,
-  XCircle,
   Receipt,
   UserX,
   UserCheck,
@@ -50,12 +49,11 @@ interface RideHistoryItem {
 
 export default function CustomerProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const customerId = (params?.customerId as string) || '';
 
   // Core Data State
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
-  const [walletData, setWalletData] = useState<{ balancePaise: number; entries: any[] } | null>(null);
+  const [walletData, setWalletData] = useState<{ balancePaise: number; entries: Record<string, unknown>[] } | null>(null);
   const [rides, setRides] = useState<RideHistoryItem[]>([]);
   const [rideMeta, setRideMeta] = useState<{ page: number; limit: number; total: number; totalPages: number }>({
     page: 1,
@@ -77,15 +75,19 @@ export default function CustomerProfilePage() {
   const [statusError, setStatusError] = useState<string | null>(null);
 
   // Notification Toast / Flash
-  const [flashMessage, setFlashMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [flashMessage, setFlashMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+    auditLink?: string;
+  } | null>(null);
 
-  const showFlash = (type: 'success' | 'error', text: string) => {
-    setFlashMessage({ type, text });
-    setTimeout(() => setFlashMessage(null), 4000);
+  const showFlash = (type: 'success' | 'error', text: string, auditLink?: string) => {
+    setFlashMessage({ type, text, auditLink });
+    setTimeout(() => setFlashMessage(null), 5000);
   };
 
   // 1. Fetch Customer Detail & Wallet Info
-  const fetchCustomerData = async () => {
+  const fetchCustomerData = useCallback(async () => {
     if (!customerId) return;
     setLoading(true);
     try {
@@ -108,15 +110,15 @@ export default function CustomerProfilePage() {
         // Wallet might not be initialized yet; fallback cleanly
         setWalletData({ balancePaise: 0, entries: [] });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load customer profile:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
 
   // 2. Fetch Customer's Paginated Ride History
-  const fetchRides = async (page = 1) => {
+  const fetchRides = useCallback(async (page = 1) => {
     if (!customerId) return;
     setRidesLoading(true);
     try {
@@ -143,17 +145,20 @@ export default function CustomerProfilePage() {
         total: Number(meta.total) ?? items.length,
         totalPages: Math.max(1, Math.ceil((Number(meta.total) ?? items.length) / (Number(meta.limit) || 10))),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load ride history:', err);
     } finally {
       setRidesLoading(false);
     }
-  };
+  }, [customerId]);
 
   useEffect(() => {
-    fetchCustomerData();
-    fetchRides(1);
-  }, [customerId]);
+    const timer = setTimeout(() => {
+      void fetchCustomerData();
+      void fetchRides(1);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchCustomerData, fetchRides]);
 
   // Handle Account Suspension / Reactivation
   const handleAccountStatusUpdate = async () => {
@@ -174,13 +179,15 @@ export default function CustomerProfilePage() {
       setStatusReason('');
       showFlash(
         'success',
-        `Customer account successfully ${nextStatus === 'SUSPENDED' ? 'suspended' : 'reactivated'}.`
+        `Customer account successfully ${nextStatus === 'SUSPENDED' ? 'suspended' : 'reactivated'}.`,
+        '/settings/audit-logs'
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; error?: { message?: string }; message?: string };
       setStatusError(
-        err?.response?.data?.error?.message ||
-          err?.error?.message ||
-          err?.message ||
+        apiErr?.response?.data?.error?.message ||
+          apiErr?.error?.message ||
+          apiErr?.message ||
           'Failed to change user status.'
       );
     } finally {
@@ -269,11 +276,19 @@ export default function CustomerProfilePage() {
           }`}
         >
           {flashMessage.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-rose-400" />
+            <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
           )}
           <span>{flashMessage.text}</span>
+          {flashMessage.auditLink && (
+            <Link
+              href={flashMessage.auditLink}
+              className="ml-2 underline font-semibold text-emerald-200 hover:text-white inline-flex items-center gap-1"
+            >
+              View Audit Trail →
+            </Link>
+          )}
         </div>
       )}
 
@@ -367,7 +382,7 @@ export default function CustomerProfilePage() {
 
                 <div className="flex items-center space-x-1">
                   <Phone className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="font-mono font-medium text-slate-700">{customer.phone}</span>
+                  <span className="font-mono font-medium text-slate-700">{maskPhone(customer.phone)}</span>
                 </div>
 
                 {customer.customer?.email && (
@@ -734,7 +749,8 @@ export default function CustomerProfilePage() {
             'success',
             updated.bookingRestricted
               ? 'Booking restriction applied successfully.'
-              : 'Booking restriction lifted successfully.'
+              : 'Booking restriction lifted successfully.',
+            '/settings/audit-logs'
           );
         }}
       />

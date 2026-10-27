@@ -56,8 +56,11 @@ export function getSocket(): Socket {
     });
   } else {
     // If token changed, update socket auth
-    if (token && socketInstance.auth && (socketInstance.auth as any).token !== token) {
-      (socketInstance.auth as any).token = token;
+    if (token && socketInstance.auth && typeof socketInstance.auth === 'object') {
+      const authObj = socketInstance.auth as Record<string, unknown>;
+      if (authObj['token'] !== token) {
+        authObj['token'] = token;
+      }
     }
   }
 
@@ -70,8 +73,8 @@ export function getSocket(): Socket {
 export function connectSocket(): Socket {
   const socket = getSocket();
   const token = getAuthToken();
-  if (token) {
-    (socket.auth as any).token = token;
+  if (token && socket.auth && typeof socket.auth === 'object') {
+    (socket.auth as Record<string, unknown>)['token'] = token;
   }
   if (!socket.connected) {
     socket.connect();
@@ -108,18 +111,19 @@ export function onDriverLocation(
 ): () => void {
   const socket = getSocket();
 
-  const handleUpdate = (payload: any) => {
+  const handleUpdate = (payload: unknown) => {
     // Unpack envelope if wrapped
-    const data = payload?.data || payload;
-    if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+    const payloadObj = payload as { data?: Record<string, unknown> } | Record<string, unknown>;
+    const data = (payloadObj && 'data' in payloadObj && payloadObj.data ? payloadObj.data : payloadObj) as Record<string, unknown>;
+    if (data && typeof data['lat'] === 'number' && typeof data['lng'] === 'number') {
       callback({
-        driverId: data.driverId || data.userId,
-        userId: data.userId,
-        lat: data.lat,
-        lng: data.lng,
-        headingDegrees: data.headingDegrees ?? 0,
-        speedKmh: data.speedKmh ?? 0,
-        recordedAt: data.recordedAt || new Date().toISOString(),
+        driverId: String(data['driverId'] || data['userId'] || ''),
+        userId: data['userId'] ? String(data['userId']) : undefined,
+        lat: Number(data['lat']),
+        lng: Number(data['lng']),
+        headingDegrees: typeof data['headingDegrees'] === 'number' ? data['headingDegrees'] : 0,
+        speedKmh: typeof data['speedKmh'] === 'number' ? data['speedKmh'] : 0,
+        recordedAt: typeof data['recordedAt'] === 'string' ? data['recordedAt'] : new Date().toISOString(),
       });
     }
   };

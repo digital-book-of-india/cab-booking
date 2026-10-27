@@ -129,7 +129,10 @@ export default function SessionsPage() {
   };
 
   useEffect(() => {
-    void fetchSessions();
+    const timer = setTimeout(() => {
+      void fetchSessions();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleRevoke = async (sessionId: string) => {

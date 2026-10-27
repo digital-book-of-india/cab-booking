@@ -7,7 +7,9 @@ interface RouteRestriction {
   department: string;
 }
 
-// Route-Level RBAC Security Matrix
+// Route-Level RBAC UX Navigation Guard
+// Note: This middleware provides client-side UX navigation guidance.
+// Authoritative cryptographic access control is enforced server-side by the backend via JWT on every API route.
 const ROUTE_PERMISSIONS: RouteRestriction[] = [
   {
     pattern: /^\/finance(\/.*)?$/,
@@ -67,14 +69,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 3. Role-Based Access Control (RBAC) URL Security Guard
+  // 3. Departmental Role-Based UX Guidance
   const userRole = request.cookies.get('user_role')?.value;
 
   if (userRole) {
     for (const rule of ROUTE_PERMISSIONS) {
       if (rule.pattern.test(pathname)) {
         if (!rule.allowedRoles.includes(userRole)) {
-          // Block unauthorized direct URL tampering and redirect to overview with alert
+          // Gracefully redirect to overview with a departmental access notice
           const redirectUrl = new URL('/', request.url);
           redirectUrl.searchParams.set('unauthorized', 'true');
           redirectUrl.searchParams.set('dept', rule.department);

@@ -11,16 +11,10 @@ import { ManualAssignModal } from '@/components/dispatch/ManualAssignModal';
 import {
   RefreshCw,
   Clock,
-  Car,
-  AlertCircle,
   CheckCircle2,
   Phone,
   UserCheck,
   Search,
-  Filter,
-  ShieldAlert,
-  ArrowRight,
-  TrendingUp,
   RotateCw,
 } from 'lucide-react';
 
@@ -30,16 +24,22 @@ export default function DispatchQueuePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'DISPATCHING' | 'REQUESTED'>('ALL');
   const [selectedBooking, setSelectedBooking] = useState<DispatchQueueItem | null>(null);
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
   // Live timer tick every 1000ms
   useEffect(() => {
+    const immediate = setTimeout(() => {
+      setCurrentTime(Date.now());
+    }, 0);
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
     }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(immediate);
+      clearInterval(timer);
+    };
   }, []);
 
   const showToast = (text: string) => {
@@ -54,8 +54,9 @@ export default function DispatchQueuePage() {
       const raw = res.data?.data?.items || res.data?.data || [];
       const items: DispatchQueueItem[] = Array.isArray(raw) ? raw : [];
       setQueue(items);
-    } catch (err: any) {
-      console.warn('Failed to load dispatch queue:', err?.message || err);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      console.warn('Failed to load dispatch queue:', apiErr?.message || err);
     } finally {
       setLoading(false);
     }
@@ -63,17 +64,20 @@ export default function DispatchQueuePage() {
 
   // Realtime Socket listener: refresh queue when bookings change
   useEffect(() => {
-    fetchQueueData();
+    const timer = setTimeout(() => {
+      void fetchQueueData();
+    }, 0);
 
     const socket = getSocket();
     const handleOpsBooking = () => {
-      fetchQueueData();
+      void fetchQueueData();
     };
 
     socket.on('ops:booking', handleOpsBooking);
     socket.on('booking:status', handleOpsBooking);
 
     return () => {
+      clearTimeout(timer);
       socket.off('ops:booking', handleOpsBooking);
       socket.off('booking:status', handleOpsBooking);
     };
@@ -88,7 +92,10 @@ export default function DispatchQueuePage() {
 
   // Helper: Format waiting duration
   const getWaitingDuration = (requestedAt?: string) => {
-    const reqMs = new Date(requestedAt || new Date()).getTime();
+    if (!currentTime || !requestedAt) {
+      return { text: '0s', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', urgency: 'NORMAL', totalSeconds: 0 };
+    }
+    const reqMs = new Date(requestedAt).getTime();
     const diffSec = Math.max(0, Math.floor((currentTime - reqMs) / 1000));
 
     const minutes = Math.floor(diffSec / 60);
