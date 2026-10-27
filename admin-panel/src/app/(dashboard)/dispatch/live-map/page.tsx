@@ -41,6 +41,40 @@ export interface FleetDriver {
 
 type FilterStatus = 'ALL' | 'AVAILABLE' | 'ON_TRIP';
 
+// Helper: Mask phone number
+const maskPhone = (phone?: string | null) => {
+  if (!phone) return '—';
+  if (phone.length <= 6) return phone;
+  return `${phone.slice(0, 5)}••••${phone.slice(-3)}`;
+};
+
+// Helper: Normalize raw API driver object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizeDriver = (d: any): FleetDriver => {
+  const lat = d.location?.lat ?? d.lat ?? 28.6139;
+  const lng = d.location?.lng ?? d.lng ?? 77.2090;
+  const makeModel = d.vehicle
+    ? `${d.vehicle.make || ''} ${d.vehicle.model || ''}`.trim()
+    : d.vehicleMakeModel || 'Standard Cab';
+  const reg = d.vehicle?.registrationNumber || d.vehicleReg || '—';
+
+  return {
+    driverId: d.driverId || d._id || d.userId,
+    userId: d.userId,
+    name: d.name || 'Fleet Driver',
+    phoneMasked: maskPhone(d.phone || d.phoneMasked),
+    lat,
+    lng,
+    headingDegrees: d.headingDegrees ?? 0,
+    speedKmh: d.speedKmh ?? (d.speedMetersPerSecond ? Math.round(d.speedMetersPerSecond * 3.6) : 0),
+    vehicleMakeModel: makeModel,
+    vehicleReg: reg,
+    category: d.vehicle?.categoryName || d.category || 'Prime Sedan',
+    currentRideId: d.activeRideId || d.currentRideId || null,
+    updatedAt: d.locationUpdatedAt || d.updatedAt || new Date().toISOString(),
+  };
+};
+
 export default function LiveMapPage() {
   const [drivers, setDrivers] = useState<FleetDriver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,45 +82,16 @@ export default function LiveMapPage() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [lastTelemetryPing, setLastTelemetryPing] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markersRef = useRef<{ [driverId: string]: any }>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leafletRef = useRef<any>(null);
   const isSimulatingRef = useRef(false);
-
-  // Helper: Mask phone number
-  const maskPhone = (phone?: string | null) => {
-    if (!phone) return '—';
-    if (phone.length <= 6) return phone;
-    return `${phone.slice(0, 5)}••••${phone.slice(-3)}`;
-  };
-
-  // Helper: Normalize raw API driver object
-  const normalizeDriver = (d: any): FleetDriver => {
-    const lat = d.location?.lat ?? d.lat ?? 28.6139;
-    const lng = d.location?.lng ?? d.lng ?? 77.2090;
-    const makeModel = d.vehicle
-      ? `${d.vehicle.make || ''} ${d.vehicle.model || ''}`.trim()
-      : d.vehicleMakeModel || 'Standard Cab';
-    const reg = d.vehicle?.registrationNumber || d.vehicleReg || '—';
-
-    return {
-      driverId: d.driverId || d._id || d.userId,
-      userId: d.userId,
-      name: d.name || 'Fleet Driver',
-      phoneMasked: maskPhone(d.phone || d.phoneMasked),
-      lat,
-      lng,
-      headingDegrees: d.headingDegrees ?? 0,
-      speedKmh: d.speedKmh ?? (d.speedMetersPerSecond ? Math.round(d.speedMetersPerSecond * 3.6) : 0),
-      vehicleMakeModel: makeModel,
-      vehicleReg: reg,
-      category: d.vehicle?.categoryName || d.category || 'Prime Sedan',
-      currentRideId: d.activeRideId || d.currentRideId || null,
-      updatedAt: d.locationUpdatedAt || d.updatedAt || new Date().toISOString(),
-    };
-  };
 
   // 1. Initial REST fetch for active fleet
   const fetchLiveFleet = useCallback(async () => {
@@ -98,8 +103,9 @@ export default function LiveMapPage() {
         ? rawItems.map(normalizeDriver)
         : [];
       setDrivers(normalized);
-    } catch (err: any) {
-      console.warn('Failed to load fleet:', err?.message || err);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      console.warn('Failed to load fleet:', apiErr?.message || err);
     } finally {
       setLoading(false);
     }
@@ -107,14 +113,18 @@ export default function LiveMapPage() {
 
   // 2. Setup Socket.IO realtime connection & listeners
   useEffect(() => {
-    fetchLiveFleet();
+    const timer = setTimeout(() => {
+      void fetchLiveFleet();
+    }, 0);
 
     const socket = connectSocket();
 
     const onConnect = () => setSocketConnected(true);
     const onDisconnect = () => setSocketConnected(false);
 
-    if (socket.connected) setSocketConnected(true);
+    if (socket.connected) {
+      setTimeout(() => setSocketConnected(true), 0);
+    }
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -164,6 +174,7 @@ export default function LiveMapPage() {
     });
 
     return () => {
+      clearTimeout(timer);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       unsubscribe();
@@ -209,13 +220,21 @@ export default function LiveMapPage() {
     };
   }, []);
 
-  // 4. Update & Animate Leaflet Markers smoothly when drivers state changes
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter((d) => {
+      if (filter === 'AVAILABLE') return !d.currentRideId;
+      if (filter === 'ON_TRIP') return Boolean(d.currentRideId);
+      return true;
+    });
+  }, [drivers, filter]);
+
+  // 4. Update & Animate Leaflet Markers smoothly when filteredDrivers state changes
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
     if (!L || !map) return;
 
-    const currentDriverIds = new Set(drivers.map((d) => d.driverId));
+    const currentDriverIds = new Set(filteredDrivers.map((d) => d.driverId));
 
     Object.keys(markersRef.current).forEach((id) => {
       if (!currentDriverIds.has(id)) {
@@ -224,7 +243,7 @@ export default function LiveMapPage() {
       }
     });
 
-    drivers.forEach((drv) => {
+    filteredDrivers.forEach((drv) => {
       const isOnTrip = Boolean(drv.currentRideId);
       const isSelected = drv.driverId === selectedDriverId;
 
@@ -269,7 +288,7 @@ export default function LiveMapPage() {
         markersRef.current[drv.driverId] = marker;
       }
     });
-  }, [drivers, selectedDriverId]);
+  }, [filteredDrivers, selectedDriverId]);
 
   const centerOnDriver = (d: FleetDriver) => {
     if (!mapInstanceRef.current) return;
@@ -286,10 +305,12 @@ export default function LiveMapPage() {
   };
 
   const toggleSimulation = () => {
-    if (isSimulatingRef.current) {
+    if (isSimulating) {
+      setIsSimulating(false);
       isSimulatingRef.current = false;
       return;
     }
+    setIsSimulating(true);
     isSimulatingRef.current = true;
 
     const interval = setInterval(() => {
@@ -327,14 +348,6 @@ export default function LiveMapPage() {
       });
     }, 2500);
   };
-
-  const filteredDrivers = useMemo(() => {
-    return drivers.filter((d) => {
-      if (filter === 'AVAILABLE') return !d.currentRideId;
-      if (filter === 'ON_TRIP') return Boolean(d.currentRideId);
-      return true;
-    });
-  }, [drivers, filter]);
 
   const selectedDriver = drivers.find((d) => d.driverId === selectedDriverId) || null;
   const availableCount = drivers.filter((d) => !d.currentRideId).length;
@@ -376,6 +389,7 @@ export default function LiveMapPage() {
             </div>
             <p className="text-[11px] text-slate-500">
               Streaming real-time telemetry • {drivers.length} online vehicles
+              {lastTelemetryPing ? ` • Ping: ${lastTelemetryPing}` : ''}
             </p>
           </div>
           <button
@@ -438,14 +452,14 @@ export default function LiveMapPage() {
           <button
             onClick={toggleSimulation}
             className={`inline-flex items-center space-x-1.5 rounded-xl px-3 py-2 text-xs font-semibold shadow-lg transition border ${
-              isSimulatingRef.current
+              isSimulating
                 ? 'bg-amber-500 text-white border-amber-600 animate-pulse'
                 : 'border-slate-200/80 bg-white/95 text-slate-700 hover:bg-slate-50'
             }`}
             title="Start live GPS movement simulator"
           >
-            <Zap className={`h-3.5 w-3.5 ${isSimulatingRef.current ? 'text-white' : 'text-amber-500'}`} />
-            <span>{isSimulatingRef.current ? 'Simulating Movement...' : 'Simulate GPS'}</span>
+            <Zap className={`h-3.5 w-3.5 ${isSimulating ? 'text-white' : 'text-amber-500'}`} />
+            <span>{isSimulating ? 'Simulating Movement...' : 'Simulate GPS'}</span>
           </button>
         </div>
       </div>

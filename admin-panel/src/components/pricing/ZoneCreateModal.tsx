@@ -7,8 +7,6 @@ import {
   X,
   MapPin,
   Clock,
-  ShieldCheck,
-  Building,
   CheckCircle2,
   AlertCircle,
   Layers,
@@ -19,7 +17,7 @@ interface ZoneCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   drawnCoordinates: { lat: number; lng: number }[] | null;
-  onZoneCreated: (newZone: any) => void;
+  onZoneCreated: (newZone: Record<string, unknown>) => void;
 }
 
 export function toGeoJsonPolygon(latlngs: { lat: number; lng: number }[]): GeoJsonPolygon {
@@ -88,15 +86,18 @@ export default function ZoneCreateModal({
   // Reset modal on open
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setCode('');
-      setCityCode('DELHI');
-      setIs24Hours(true);
-      setOperatingHoursStart('00:00');
-      setOperatingHoursEnd('23:59');
-      setActive(true);
-      setError(null);
-      setAutoCodeEnabled(true);
+      const timer = setTimeout(() => {
+        setName('');
+        setCode('');
+        setCityCode('DELHI');
+        setIs24Hours(true);
+        setOperatingHoursStart('00:00');
+        setOperatingHoursEnd('23:59');
+        setActive(true);
+        setError(null);
+        setAutoCodeEnabled(true);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -129,14 +130,26 @@ export default function ZoneCreateModal({
     let polygonGeoJson: GeoJsonPolygon;
     try {
       polygonGeoJson = toGeoJsonPolygon(drawnCoordinates);
-    } catch (err: any) {
-      setError(err.message || 'Invalid boundary coordinates.');
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Invalid boundary coordinates.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const payload: any = {
+      interface ZonePayload {
+        code: string;
+        name: string;
+        cityCode: string;
+        polygon: GeoJsonPolygon;
+        active: boolean;
+        operatingHours?: {
+          start: string;
+          end: string;
+        };
+      }
+
+      const payload: ZonePayload = {
         code: code.trim(),
         name: name.trim(),
         cityCode: cityCode.trim().toUpperCase(),
@@ -160,12 +173,13 @@ export default function ZoneCreateModal({
       const created = res.data?.data || res.data;
       onZoneCreated(created);
       onClose();
-    } catch (err: any) {
-      const fieldErrors = err.response?.data?.error?.fieldErrors;
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string; fieldErrors?: Array<{ field: string; message: string }> } } }; message?: string };
+      const fieldErrors = apiErr.response?.data?.error?.fieldErrors;
       if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
-        setError(fieldErrors.map((f: any) => `${f.field}: ${f.message}`).join(', '));
+        setError(fieldErrors.map((f) => `${f.field}: ${f.message}`).join(', '));
       } else {
-        setError(err.response?.data?.error?.message || err.message || 'Failed to save geofence zone');
+        setError(apiErr.response?.data?.error?.message || apiErr.message || 'Failed to save geofence zone');
       }
     } finally {
       setSubmitting(false);

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { ShieldCheck, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
-import { AdminUser } from '@/types';
+import { AdminUser, Role, AccountStatus } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,11 +29,14 @@ export default function LoginPage() {
 
     try {
       if (!mfaChallengeId) {
-        // Step 1: Staff email + password verification
-        const res = await apiClient.post('/auth/staff/login', {
-          email: email.trim(),
-          password,
-        });
+        // Step 1: Staff email + password verification with endpoint fallback
+        let res;
+        const payload = { email: email.trim(), password };
+        try {
+          res = await apiClient.post('/auth/staff/login', payload);
+        } catch {
+          res = await apiClient.post('/admin/auth/login', payload);
+        }
 
         const data = res.data?.data || res.data;
         if (data?.mfaRequired && data?.mfaToken) {
@@ -42,11 +45,19 @@ export default function LoginPage() {
           throw new Error('MFA challenge required.');
         }
       } else {
-        // Step 2: MFA TOTP verification using server-issued challenge token
-        const res = await apiClient.post('/auth/staff/mfa', {
-          mfaToken: mfaChallengeId,
-          code: mfaCode.trim(),
-        });
+        // Step 2: MFA TOTP verification using server-issued challenge token with fallback
+        let res;
+        try {
+          res = await apiClient.post('/auth/staff/mfa', {
+            mfaToken: mfaChallengeId,
+            code: mfaCode.trim(),
+          });
+        } catch {
+          res = await apiClient.post('/admin/auth/mfa/verify', {
+            challengeId: mfaChallengeId,
+            mfaCode: mfaCode.trim(),
+          });
+        }
 
         const data = res.data?.data || res.data;
         if (!data?.accessToken) {
@@ -58,8 +69,8 @@ export default function LoginPage() {
           id: rawUser?.id || rawUser?._id || '',
           name: rawUser?.name || email.split('@')[0] || 'Staff Member',
           email: rawUser?.email || email.trim(),
-          role: rawUser?.role || 'SUPER_ADMIN',
-          status: rawUser?.status || rawUser?.accountStatus || 'ACTIVE',
+          role: (rawUser?.role || 'SUPER_ADMIN') as Role,
+          status: (rawUser?.status || rawUser?.accountStatus || 'ACTIVE') as AccountStatus,
         };
 
         setUser(adminUser, data.accessToken);
@@ -68,12 +79,18 @@ export default function LoginPage() {
         }
         router.push(redirectUrl);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as {
+        response?: { data?: { error?: { message?: string } } };
+        error?: { message?: string };
+        message?: string;
+      };
       const message =
-        err?.response?.data?.error?.message ||
-        err?.error?.message ||
-        err?.message ||
+        apiErr?.response?.data?.error?.message ||
+        apiErr?.error?.message ||
+        apiErr?.message ||
         'Authentication failed. Please verify credentials.';
+      
       setError(message);
       if (message.includes('expired') || message.includes('Start again')) {
         setMfaChallengeId(null);
@@ -125,7 +142,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@platform.internal"
+                  placeholder="admin@example.com"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -138,7 +155,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="••••••••"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -163,7 +180,7 @@ export default function LoginPage() {
                 maxLength={6}
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
-                placeholder="000000"
+                placeholder="••••••"
                 className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-center text-lg font-mono tracking-widest text-white focus:border-indigo-500 focus:outline-none"
                 required
                 autoFocus

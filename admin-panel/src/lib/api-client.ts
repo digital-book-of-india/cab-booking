@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
 import { ApiErrorResponse } from '@/types';
 
 let mswReadyPromise: Promise<boolean> | null = null;
@@ -39,18 +39,11 @@ apiClient.interceptors.request.use(
     if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCKS !== 'false') {
       await ensureMswReady();
     }
-    // Standard platform bearer injection if stored in localStorage
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
 
     // Attach JWT Authorization header
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-      if (token && !config.headers['Authorization']) {
+      if (token && config.headers && !config.headers['Authorization']) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
     }

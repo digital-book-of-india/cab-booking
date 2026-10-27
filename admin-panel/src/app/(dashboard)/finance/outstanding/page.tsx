@@ -44,9 +44,11 @@ export default function OutstandingBalancesPage() {
   const [disputeReason, setDisputeReason] = useState('Customer claims trip fare calculation error');
 
   // Feedback Banner
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
-    null
-  );
+  const [feedback, setFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    auditLink?: string;
+  } | null>(null);
 
   // Fetch unpaid debts
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -122,6 +124,7 @@ export default function OutstandingBalancesPage() {
       setFeedback({
         type: 'success',
         message: `Outstanding balance for ${variables.rideId} successfully written off. Loss absorbed by platform.`,
+        auditLink: '/settings/audit-logs',
       });
       setSelectedItem(null);
     },
@@ -265,6 +268,14 @@ export default function OutstandingBalancesPage() {
               <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
             )}
             <span>{feedback.message}</span>
+            {feedback.auditLink && (
+              <Link
+                href={feedback.auditLink}
+                className="ml-2 font-semibold underline underline-offset-2 hover:opacity-80 inline-flex items-center gap-1"
+              >
+                View Audit Trail →
+              </Link>
+            )}
           </div>
           <button
             onClick={() => setFeedback(null)}

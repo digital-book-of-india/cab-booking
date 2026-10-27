@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Vehicle } from '@/types';
+import { CheckCircle2, AlertCircle, ArrowRight, X } from 'lucide-react';
 
 export default function VehiclesPage() {
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const {
     data: vehicles = [],
     isLoading: loading,
@@ -19,15 +23,60 @@ export default function VehiclesPage() {
   });
 
   const handleVerify = async (vehicleId: string, status: 'VERIFIED' | 'REJECTED') => {
-    await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {
-      verificationStatus: status,
-      reasonCode: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
-    });
-    fetchVehicles();
+    try {
+      await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {
+        verificationStatus: status,
+        reasonCode: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
+      });
+      setToast({
+        type: 'success',
+        text: `Vehicle ${status === 'VERIFIED' ? 'verified' : 'rejected'} successfully and logged in audit registry.`,
+      });
+      fetchVehicles();
+    } catch {
+      setToast({
+        type: 'error',
+        text: 'Failed to update vehicle verification status.',
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <div
+          className={`flex items-center justify-between p-4 rounded-xl border text-xs shadow-xs animate-in fade-in ${
+            toast.type === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            {toast.type === 'error' ? (
+              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            )}
+            <span>{toast.text}</span>
+            {toast.type === 'success' && (
+              <>
+                <span>•</span>
+                <Link
+                  href="/settings/audit-logs"
+                  className="font-bold text-emerald-700 hover:text-emerald-900 underline inline-flex items-center space-x-1"
+                >
+                  <span>View Audit Trail</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </>
+            )}
+          </div>
+          <button onClick={() => setToast(null)} className="text-slate-400 hover:text-slate-600 p-1">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Vehicle Registry & Verification</h1>

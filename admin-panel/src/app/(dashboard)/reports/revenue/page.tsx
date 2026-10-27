@@ -107,10 +107,13 @@ export default function RevenueReportPage() {
   const series: RevenueSeriesItem[] = revenueData?.series || revenueData?.items || [];
   const totals = revenueData?.totals || revenueData?.money || {};
 
-  // Export to Excel
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Export to Excel (Enforce 50,000-row cap)
   const exportToExcel = () => {
     if (!series || series.length === 0) return;
-    const rows = series.map((r: RevenueSeriesItem) => ({
+    const capped = series.slice(0, 50000);
+    const rows = capped.map((r: RevenueSeriesItem) => ({
       Date: r.date || r._id,
       GrossFaresINR: ((r.faresPaise || r.grossPaise || 0) / 100).toFixed(2),
       PlatformCommissionINR: ((r.commissionPaise || 0) / 100).toFixed(2),
@@ -126,6 +129,7 @@ export default function RevenueReportPage() {
   };
 
   const downloadCsv = async () => {
+    setExportError(null);
     try {
       const params = new URLSearchParams();
       if (from) params.append('from', new Date(`${from}T00:00:00.000Z`).toISOString());
@@ -140,7 +144,12 @@ export default function RevenueReportPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch {
+    } catch (err: unknown) {
+      const maybeAxios = err as { response?: { status?: number } };
+      if (maybeAxios?.response?.status === 422) {
+        setExportError('Export exceeds platform limit of 50,000 rows. Please select a shorter date range.');
+        return;
+      }
       exportToExcel();
     }
   };
@@ -220,6 +229,21 @@ export default function RevenueReportPage() {
         <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{dateError}</span>
+        </div>
+      )}
+
+      {exportError && (
+        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>{exportError}</span>
+          </div>
+          <button
+            onClick={() => setExportError(null)}
+            className="text-amber-500 hover:text-amber-700 font-bold ml-4"
+          >
+            ✕
+          </button>
         </div>
       )}
 

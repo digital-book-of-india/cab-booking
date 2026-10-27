@@ -82,8 +82,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
     try {
       const res = await apiClient.get(`/admin/drivers/${driverId}`);
       setDriver(res.data?.data || res.data);
-    } catch (err: any) {
-      console.warn('Failed to load driver KYC:', err?.message || err);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      console.warn('Failed to load driver KYC:', apiErr?.message || err);
       showToast('Failed to load driver KYC inspection details', 'error');
     } finally {
       setLoading(false);
@@ -91,7 +92,10 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
   }, [driverId]);
 
   useEffect(() => {
-    fetchDriver();
+    const timer = setTimeout(() => {
+      void fetchDriver();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchDriver]);
 
   // Overall Approve Onboarding
@@ -102,8 +106,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       await apiClient.post(`/admin/drivers/${driverId}/approve`);
       showToast(`Driver ${driver.name || driverId} has been approved for live operations!`, 'success');
       fetchDriver();
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Failed to approve driver.';
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = apiErr.response?.data?.error?.message || apiErr.message || 'Failed to approve driver.';
       showToast(msg, 'error');
     } finally {
       setActionLoading(false);
@@ -134,8 +139,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       setDecisionModal(null);
       setCustomReason('');
       fetchDriver();
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Action failed.';
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = apiErr.response?.data?.error?.message || apiErr.message || 'Action failed.';
       showToast(msg, 'error');
     } finally {
       setActionLoading(false);
@@ -154,8 +160,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       if (inspectingDoc?.id === docId) {
         setInspectingDoc(null);
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Failed to approve document.';
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = apiErr.response?.data?.error?.message || apiErr.message || 'Failed to approve document.';
       showToast(msg, 'error');
     } finally {
       setActionLoading(false);
@@ -175,8 +182,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       if (inspectingDoc?.id === docId) {
         setInspectingDoc(null);
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Failed to reject document.';
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = apiErr.response?.data?.error?.message || apiErr.message || 'Failed to reject document.';
       showToast(msg, 'error');
     } finally {
       setActionLoading(false);
@@ -200,8 +208,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       });
       showToast(`Vehicle verification status updated to ${status}.`, 'success');
       fetchDriver();
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Failed to update vehicle verification.';
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = apiErr.response?.data?.error?.message || apiErr.message || 'Failed to update vehicle verification.';
       showToast(msg, 'error');
     } finally {
       setActionLoading(false);
@@ -250,6 +259,14 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
             <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
           )}
           <span className="text-xs font-semibold">{toast.text}</span>
+          {toast.type === 'success' && (
+            <Link
+              href="/settings/audit-logs"
+              className="ml-2 inline-flex items-center space-x-1 font-bold text-emerald-700 hover:text-emerald-900 underline text-xs whitespace-nowrap"
+            >
+              <span>View Audit Trail →</span>
+            </Link>
+          )}
           <button onClick={() => setToast(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded">
             <X className="h-4 w-4" />
           </button>
@@ -292,6 +309,12 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
               </span>
               <span>•</span>
               <span className="font-mono text-slate-400 text-[11px]">ID: {driver.driverId}</span>
+              {driver.submittedAt && (
+                <>
+                  <span>•</span>
+                  <span>Submitted {formatToIST(driver.submittedAt)}</span>
+                </>
+              )}
             </div>
           </div>
         </div>

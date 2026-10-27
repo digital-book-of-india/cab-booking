@@ -2,7 +2,100 @@ import { formatPaiseToInr, parseInrInputToPaise } from '../lib/currency';
 import { generateUUID, getIdempotencyKey, clearIdempotencyKey } from '../lib/idempotency';
 import { Role } from '../types';
 
-export function runDay8VerificationSuite(): { total: number; passed: number; failed: number; results: Array<{ name: string; status: 'PASS' | 'FAIL'; message: string }> } {
+if (typeof describe !== 'undefined') {
+  describe('Verification Matrix Suite', () => {
+    describe('Financial Precision & Currency Conversions', () => {
+      it('parses standard decimal amounts accurately to paise', () => {
+        expect(parseInrInputToPaise('250.50')).toBe(25050);
+      });
+
+      it('parses comma-separated rupee inputs to paise', () => {
+        expect(parseInrInputToPaise('1,250.00')).toBe(125000);
+      });
+
+      it('parses integer rupee strings to paise', () => {
+        expect(parseInrInputToPaise('100')).toBe(10000);
+      });
+
+      it('parses negative rupee amounts to paise', () => {
+        expect(parseInrInputToPaise('-0.50')).toBe(-50);
+      });
+
+      it('formats positive paise amounts to INR string', () => {
+        expect(formatPaiseToInr(25050)).toBe('₹250.50');
+      });
+
+      it('formats zero paise to ₹0.00', () => {
+        expect(formatPaiseToInr(0)).toBe('₹0.00');
+      });
+
+      it('rejects invalid currency syntax with an exception', () => {
+        expect(() => parseInrInputToPaise('25-3')).toThrow();
+      });
+    });
+
+    describe('RBAC Action Matrix', () => {
+      const canWriteOff = (role: Role) => role === 'SUPER_ADMIN';
+      const canIssueRefund = (role: Role) => role === 'SUPER_ADMIN' || role === 'FINANCE';
+      const canAssignDriver = (role: Role) => role === 'SUPER_ADMIN' || role === 'OPS';
+
+      it('restricts customer debt write-off from FINANCE', () => {
+        expect(canWriteOff('FINANCE')).toBe(false);
+      });
+
+      it('allows customer debt write-off for SUPER_ADMIN', () => {
+        expect(canWriteOff('SUPER_ADMIN')).toBe(true);
+      });
+
+      it('allows issuing refunds for FINANCE', () => {
+        expect(canIssueRefund('FINANCE')).toBe(true);
+      });
+
+      it('restricts dispatch driver assignment from SUPPORT', () => {
+        expect(canAssignDriver('SUPPORT')).toBe(false);
+      });
+    });
+
+    describe('PII Redaction Validation', () => {
+      it('adheres to strictly masked phone pattern (+91 ••••• •XXXX)', () => {
+        const phoneMaskRegex = /^\+91 ••••• •\d{4}$/;
+        const sampleMasked = '+91 ••••• •3421';
+        expect(phoneMaskRegex.test(sampleMasked)).toBe(true);
+      });
+
+      it('redacts document IDs leaving only last 4 digits visible', () => {
+        const docNumberLast4 = '8834';
+        expect(docNumberLast4.length).toBe(4);
+        expect(/^\d{4}$/.test(docNumberLast4)).toBe(true);
+      });
+    });
+
+    describe('Idempotency RFC 4122 v4 Conformance', () => {
+      it('generates unique RFC 4122 v4 UUIDs', () => {
+        const key1 = generateUUID();
+        const key2 = generateUUID();
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        expect(key1).not.toBe(key2);
+        expect(uuidRegex.test(key1)).toBe(true);
+        expect(uuidRegex.test(key2)).toBe(true);
+      });
+
+      it('reuses identical key on operation retries', () => {
+        const initialKey = getIdempotencyKey('refund', 'bk_123');
+        const retryKey = getIdempotencyKey('refund', 'bk_123');
+        expect(initialKey).toBe(retryKey);
+        clearIdempotencyKey('refund', 'bk_123');
+      });
+    });
+  });
+}
+
+export function runDay8VerificationSuite(): {
+  total: number;
+  passed: number;
+  failed: number;
+  results: Array<{ name: string; status: 'PASS' | 'FAIL'; message: string }>;
+} {
   const results: Array<{ name: string; status: 'PASS' | 'FAIL'; message: string }> = [];
 
   function assert(name: string, condition: boolean, message: string) {

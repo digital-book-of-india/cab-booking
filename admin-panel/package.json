@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:dev1": "node scripts/test-dev1-all.mjs",
+    "test:dev2": "npx tsx scripts/test-dev2-all.ts",
+    "test:all": "npm test && npm run test:dev1 && npm run test:dev2"
   },
   "dependencies": {
     "@geoman-io/leaflet-geoman-free": "^2.20.4",
@@ -39,7 +43,8 @@
     "msw": "^3.0.3",
     "postcss": "^8.5.31",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   },
   "msw": {
     "workerDirectory": [

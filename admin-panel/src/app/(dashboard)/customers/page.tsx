@@ -40,15 +40,19 @@ export default function CustomersPage() {
       });
       const data = res.data?.data?.items || res.data?.data || [];
       setCustomers(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.warn('Failed to load customers:', err?.message || err);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      console.warn('Failed to load customers:', apiErr?.message || err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCustomers();
+    const timer = setTimeout(() => {
+      void fetchCustomers();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleStatusToggle = async () => {
@@ -73,9 +77,10 @@ export default function CustomersPage() {
       );
       setStatusModalUser(null);
       setStatusReason('');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setActionError(
-        err?.response?.data?.error?.message || err?.message || 'Failed to update account status.'
+        apiErr?.response?.data?.error?.message || apiErr?.message || 'Failed to update account status.'
       );
     } finally {
       setUpdatingStatus(false);

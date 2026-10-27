@@ -55,9 +55,13 @@ export function RestrictionDrawer({
   // Sync state when drawer opens or current status changes
   useEffect(() => {
     if (isOpen) {
-      setAction(isCurrentlyRestricted ? 'LIFT' : 'RESTRICT');
-      setReason('');
-      setError(null);
+      const nextAction = isCurrentlyRestricted ? 'LIFT' : 'RESTRICT';
+      const timer = setTimeout(() => {
+        setAction(nextAction);
+        setReason('');
+        setError(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, isCurrentlyRestricted]);
 
@@ -102,11 +106,12 @@ export function RestrictionDrawer({
         restrictedAt: data?.restrictedAt || (action === 'RESTRICT' ? new Date().toISOString() : null),
       });
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; error?: { message?: string }; message?: string };
       const msg =
-        err?.response?.data?.error?.message ||
-        err?.error?.message ||
-        err?.message ||
+        apiErr?.response?.data?.error?.message ||
+        apiErr?.error?.message ||
+        apiErr?.message ||
         'Failed to update booking restriction status.';
       setError(msg);
     } finally {

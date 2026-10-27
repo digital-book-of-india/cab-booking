@@ -1,6 +1,7 @@
 import { runDev2AcceptanceSuite } from '../src/tests/dev2-acceptance.test';
 import { runIdempotencyTests } from '../src/tests/idempotency.test';
 import { runDay8VerificationSuite } from '../src/tests/verification-matrix.test';
+import { clearIdempotencyKey } from '../src/lib/idempotency';
 
 interface TestReportItem {
   category: string;
@@ -121,7 +122,12 @@ async function runAll() {
     });
   }
 
-  // 6. Print Summary Table
+  // 6. Automated Teardown & Idempotency Cache Cleanup
+  clearIdempotencyKey('refund', 'bk_123');
+  clearIdempotencyKey('refund', 'booking_999');
+  clearIdempotencyKey('cash_deposit', 'booking_999');
+
+  // 7. Print Summary Table
   console.table(reports);
 
   const passedCount = reports.filter((r) => r.status === 'PASS').length;

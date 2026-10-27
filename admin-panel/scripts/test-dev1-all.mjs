@@ -48,6 +48,7 @@ async function runTestSuite() {
   let sampleBookingId = null;
   let sampleDriverId = '6adf38cb5203a71c2d2274ec';
   let createdZoneId = null;
+  let catId = null;
 
   // -------------------------------------------------------------
   // TASK 1: Base API Client & Auth Setup
@@ -472,7 +473,7 @@ async function runTestSuite() {
       },
       { code: catCode, name: 'Eco Electric Class', capacity: 4, displayOrder: 9, active: true }
     );
-    const catId = catCreate.data?.data?.id;
+    catId = catCreate.data?.data?.id;
     recordTest(7, 'Driver KYC & Fleet', 'Cab Category Creation (POST /admin/cab-categories)', catCreate.statusCode === 201, `ID: ${catId}`);
 
     if (catId) {
@@ -537,6 +538,64 @@ async function runTestSuite() {
     recordTest(8, 'RBAC Middleware', 'Enforce System Governance RBAC (Block OPS from /settings/roles)', unauthRolesReq.statusCode === 307 && unauthRolesReq.headers.location?.includes('unauthorized=true'), `Location: ${unauthRolesReq.headers.location}`);
   } catch (err) {
     recordTest(8, 'RBAC Middleware', 'RBAC Middleware Error', false, err.message);
+  }
+
+  // -------------------------------------------------------------
+  // AUTOMATED TEARDOWN & IDEMPOTENCY CLEANUP
+  // -------------------------------------------------------------
+  console.log('\n--- Running Automated Teardown & Idempotency Cleanup ---');
+  if (createdZoneId) {
+    try {
+      await httpRequest(
+        {
+          hostname: 'localhost',
+          port: BACKEND_PORT,
+          path: `/api/v1/admin/zones/${createdZoneId}`,
+          method: 'PATCH',
+          headers: authHeaders,
+        },
+        { active: false }
+      );
+      console.log(`[Teardown] ✅ Successfully deactivated test zone (${createdZoneId})`);
+    } catch (err) {
+      console.warn(`[Teardown] ⚠️ Could not deactivate test zone: ${err.message}`);
+    }
+  }
+
+  if (catId) {
+    try {
+      await httpRequest(
+        {
+          hostname: 'localhost',
+          port: BACKEND_PORT,
+          path: `/api/v1/admin/cab-categories/${catId}`,
+          method: 'PATCH',
+          headers: authHeaders,
+        },
+        { active: false }
+      );
+      console.log(`[Teardown] ✅ Successfully deactivated test category (${catId})`);
+    } catch (err) {
+      console.warn(`[Teardown] ⚠️ Could not deactivate test category: ${err.message}`);
+    }
+  }
+
+  if (sampleCustomerId) {
+    try {
+      await httpRequest(
+        {
+          hostname: 'localhost',
+          port: BACKEND_PORT,
+          path: `/api/v1/admin/customers/${sampleCustomerId}/restrictions`,
+          method: 'POST',
+          headers: authHeaders,
+        },
+        { action: 'LIFT', reason: 'Automated test suite teardown: customer reset to active' }
+      );
+      console.log(`[Teardown] ✅ Customer booking restrictions restored to active (${sampleCustomerId})`);
+    } catch (err) {
+      console.warn(`[Teardown] ⚠️ Could not restore customer restrictions: ${err.message}`);
+    }
   }
 
   // -------------------------------------------------------------

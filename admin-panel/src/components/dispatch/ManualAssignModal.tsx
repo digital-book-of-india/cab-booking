@@ -7,12 +7,6 @@ import {
   Car,
   AlertTriangle,
   Loader2,
-  CheckCircle2,
-  Phone,
-  ShieldCheck,
-  Compass,
-  ArrowRight,
-  Info,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { DispatchQueueItem } from '@/types';
@@ -68,13 +62,17 @@ export function ManualAssignModal({
   useEffect(() => {
     if (!isOpen || !booking) return;
 
-    setLoadingDrivers(true);
-    setError(null);
-    setSelectedDriverId('');
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      setLoadingDrivers(true);
+      setError(null);
+      setSelectedDriverId('');
+    }, 0);
 
     apiClient
       .get('/admin/drivers/live')
       .then((res) => {
+        if (!isMounted) return;
         const raw = res.data?.data?.items || res.data?.data || [];
         const items: AvailableDriver[] = Array.isArray(raw) ? raw : [];
 
@@ -94,13 +92,20 @@ export function ManualAssignModal({
           setSelectedDriverId(available[0].driverId);
         }
       })
-      .catch((err) => {
-        console.error('Failed to fetch available drivers:', err);
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        const errorMsg = (err as Error)?.message || 'Failed to load live online drivers. Please retry.';
+        console.warn('Failed to fetch available drivers:', errorMsg);
         setError('Failed to load live online drivers. Please retry.');
       })
       .finally(() => {
-        setLoadingDrivers(false);
+        if (isMounted) setLoadingDrivers(false);
       });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [isOpen, booking]);
 
   if (!isOpen || !booking) return null;
@@ -147,19 +152,18 @@ export function ManualAssignModal({
 
       onSuccess(booking.bookingId);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; error?: { message?: string }; message?: string };
       const msg =
-        err?.response?.data?.error?.message ||
-        err?.error?.message ||
-        err?.message ||
+        apiErr?.response?.data?.error?.message ||
+        apiErr?.error?.message ||
+        apiErr?.message ||
         'Assignment failed. The driver may have become unavailable or the booking changed state.';
       setError(msg);
     } finally {
       setSubmitting(false);
     }
   };
-
-  const selectedDriver = drivers.find((d) => d.driverId === selectedDriverId);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">

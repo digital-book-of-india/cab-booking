@@ -6,17 +6,13 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
-  RotateCcw,
-  Maximize2,
-  ExternalLink,
   CheckCircle2,
   XCircle,
   FileText,
   AlertTriangle,
+  ExternalLink,
   Calendar,
-  Hash,
   Shield,
-  Eye,
 } from 'lucide-react';
 
 export interface DriverDocItem {
@@ -73,10 +69,13 @@ export default function DocumentInspectionModal({
 
   // Reset zoom & rotation whenever document changes
   useEffect(() => {
-    setScale(1);
-    setRotation(0);
-    setImageError(false);
-    setIsRejecting(false);
+    const timer = setTimeout(() => {
+      setScale(1);
+      setRotation(0);
+      setImageError(false);
+      setIsRejecting(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [document]);
 
   if (!isOpen || !document) return null;
@@ -244,6 +243,7 @@ export default function DocumentInspectionModal({
                 transform: `scale(${scale}) rotate(${rotation}deg)`,
               }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={document.downloadUrl}
                 alt={docTitle}

@@ -407,8 +407,8 @@ export interface AuditLogEntry {
   actionCode: string;
   targetResource: string;
   targetId: string;
-  beforeSnapshot?: Record<string, any>;
-  afterSnapshot?: Record<string, any>;
+  beforeSnapshot?: Record<string, unknown>;
+  afterSnapshot?: Record<string, unknown>;
   ipAddress: string;
   timestamp: string;
 }
@@ -554,5 +554,5 @@ export interface CustomerDetail extends CustomerListItem {
   totalSpentPaise?: number;
   walletBalancePaise?: number;
   customer?: CustomerProfileInfo | null;
-  recentBookings?: any[];
+  recentBookings?: Record<string, unknown>[];
 }
