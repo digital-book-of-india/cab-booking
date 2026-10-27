@@ -341,18 +341,21 @@ export function createNotifier(deps: {
         if (lastEmit.size > MAX_TRACKED) lastEmit.clear();
         if (lastTrail.size > MAX_TRACKED) lastTrail.clear();
         if (wantEmit) {
-          const driverLocPayload = {
+          lastEmit.set(key, t);
+          const riderPayload = {
             rideId: b.rideId ?? null,
             bookingId: b.publicId,
-            driverId: p.driverId.toString(),
             lat: p.lat,
             lng: p.lng,
             ...(p.headingDegrees !== undefined ? { headingDegrees: p.headingDegrees } : {}),
             recordedAt: p.recordedAt.toISOString(),
           };
-          bus.emitToUsers([b.customerId.toString()], ServerEvents.DRIVER_LOCATION, driverLocPayload);
-          bus.emitToOps(ServerEvents.DRIVER_LOCATION, driverLocPayload);
-          bus.emitToOps('driver.location.updated' as any, driverLocPayload);
+          const opsPayload = {
+            ...riderPayload,
+            driverId: p.driverId.toString(),
+          };
+          bus.emitToUsers([b.customerId.toString()], ServerEvents.DRIVER_LOCATION, riderPayload);
+          bus.emitToOps(ServerEvents.DRIVER_LOCATION_UPDATED, opsPayload);
         }
         if (wantTrail) {
           lastTrail.set(key, t);

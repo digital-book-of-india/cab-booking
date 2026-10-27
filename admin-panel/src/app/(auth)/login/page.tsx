@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { ShieldCheck, KeyRound, AlertCircle, ArrowRight } from 'lucide-react';
+import { AdminUser } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
   const { setUser } = useAuthStore();
-  const [email, setEmail] = useState('admin@platform.internal');
-  const [password, setPassword] = useState('Admin@123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,88 +29,65 @@ export default function LoginPage() {
 
     try {
       if (!mfaChallengeId) {
-        let res;
-        try {
-          try {
-            res = await apiClient.post('/auth/staff/login', { email, password });
-          } catch {
-            res = await apiClient.post('/admin/auth/login', { email, password });
-          }
-        } catch (apiErr: any) {
-          // Graceful fallback for local/internal admin credentials if backend auth endpoints are unmounted
-          if (email === 'admin@platform.internal' && (password === 'Admin@123456' || password === 'admin@123')) {
-            const adminUser = {
-              id: 'usr_admin_001',
-              name: 'Super Commander',
-              email: 'admin@platform.internal',
-              role: 'SUPER_ADMIN' as const,
-              status: 'ACTIVE' as const,
-            };
-            setUser(adminUser as any, 'mock_jwt_access_super_admin');
-            router.push(redirectUrl);
-            return;
-          }
-          throw apiErr;
-        }
+        // Step 1: Staff email + password verification
+        const res = await apiClient.post('/auth/staff/login', {
+          email: email.trim(),
+          password,
+        });
 
         const data = res.data?.data || res.data;
-        if (data?.mfaRequired) {
-          setMfaChallengeId(data.mfaToken || data.challengeId);
-        } else if (data?.user) {
-          setUser(data.user, data.accessToken);
-          router.push(redirectUrl);
+        if (data?.mfaRequired && data?.mfaToken) {
+          setMfaChallengeId(data.mfaToken);
+        } else {
+          throw new Error('MFA challenge required.');
         }
       } else {
-        let res;
-        try {
-          try {
-            res = await apiClient.post('/auth/staff/mfa', {
-              mfaToken: mfaChallengeId,
-              code: mfaCode,
-            });
-          } catch {
-            res = await apiClient.post('/admin/auth/mfa/verify', {
-              challengeId: mfaChallengeId,
-              mfaCode,
-            });
-          }
-        } catch (apiErr: any) {
-          if (mfaCode === '123456') {
-            const adminUser = {
-              id: 'usr_admin_001',
-              name: 'Super Commander',
-              email: 'admin@platform.internal',
-              role: 'SUPER_ADMIN' as const,
-              status: 'ACTIVE' as const,
-            };
-            setUser(adminUser as any, 'mock_jwt_access_super_admin');
-            router.push(redirectUrl);
-            return;
-          }
-          throw apiErr;
-        }
+        // Step 2: MFA TOTP verification using server-issued challenge token
+        const res = await apiClient.post('/auth/staff/mfa', {
+          mfaToken: mfaChallengeId,
+          code: mfaCode.trim(),
+        });
 
         const data = res.data?.data || res.data;
+        if (!data?.accessToken) {
+          throw new Error('Authentication failed: no session token issued.');
+        }
+
         const rawUser = data.user;
-        const adminUser = {
+        const adminUser: AdminUser = {
           id: rawUser?.id || rawUser?._id || '',
-          name: rawUser?.name || 'Admin',
-          email: rawUser?.email || email,
+          name: rawUser?.name || email.split('@')[0] || 'Staff Member',
+          email: rawUser?.email || email.trim(),
           role: rawUser?.role || 'SUPER_ADMIN',
           status: rawUser?.status || rawUser?.accountStatus || 'ACTIVE',
         };
-        setUser(adminUser as any, data.accessToken);
+
+        setUser(adminUser, data.accessToken);
+        if (data.refreshToken && typeof window !== 'undefined') {
+          localStorage.setItem('refresh_token', data.refreshToken);
+        }
         router.push(redirectUrl);
       }
     } catch (err: any) {
-      setError(
+      const message =
         err?.response?.data?.error?.message ||
-          err?.message ||
-          'Authentication failed. Please verify credentials.'
-      );
+        err?.error?.message ||
+        err?.message ||
+        'Authentication failed. Please verify credentials.';
+      setError(message);
+      if (message.includes('expired') || message.includes('Start again')) {
+        setMfaChallengeId(null);
+        setMfaCode('');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelMfa = () => {
+    setMfaChallengeId(null);
+    setMfaCode('');
+    setError(null);
   };
 
   return (
@@ -124,7 +102,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-1 text-xs text-slate-400">
             {mfaChallengeId
-              ? 'Enter the 6-digit authenticator code (Mock default: 123456)'
+              ? 'Enter the 6-digit code from your authenticator app'
               : 'Enter authorized administrative credentials to access operations'}
           </p>
         </div>
@@ -147,6 +125,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@platform.internal"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -159,6 +138,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                   required
                 />
@@ -166,17 +146,27 @@ export default function LoginPage() {
             </>
           ) : (
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                6-Digit Security Code
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  6-Digit Security Code
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCancelMfa}
+                  className="text-xs text-indigo-400 hover:text-indigo-300"
+                >
+                  Change email
+                </button>
+              </div>
               <input
                 type="text"
                 maxLength={6}
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
-                placeholder="123456"
+                placeholder="000000"
                 className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-center text-lg font-mono tracking-widest text-white focus:border-indigo-500 focus:outline-none"
                 required
+                autoFocus
               />
             </div>
           )}

@@ -130,6 +130,19 @@ describe('the rider watching the driver', () => {
     expect(rival.count('driver:location')).toBe(0);
   });
 
+  it('ops room receives the driver position with driverId for live radar', async () => {
+    start();
+    const { driver } = await rideInProgress();
+    const ops = await loginAsAdmin(env, nextPhone(), 'OPS');
+    const opsSocket = await env.connect(ops.accessToken);
+
+    at(2000);
+    await ping(driver, 50);
+    const ev = await opsSocket.waitFor('driver.location.updated');
+    expect(ev.data).toHaveProperty('driverId', driver.driverId);
+    expect(opsSocket.count('driver:location')).toBe(0);
+  });
+
   it('stops the moment the ride ends', async () => {
     start();
     const { customer, driver, rideId } = await rideInProgress();

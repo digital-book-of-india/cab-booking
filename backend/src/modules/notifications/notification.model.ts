@@ -30,6 +30,7 @@ const notificationSchema = new Schema(
     priority: { type: String, enum: ['high', 'normal'], default: 'normal' },
     // Past this moment the push is pointless (an expired ride offer) and is dropped.
     expiresAt: { type: Date },
+    ttlSeconds: { type: Number },
     status: { type: String, enum: NotificationStatuses, default: 'PENDING' },
     attempts: { type: Number, default: 0 },
     nextAttemptAt: { type: Date, required: true },

@@ -36,6 +36,7 @@ describe('feature flags', () => {
       TIPS: true,
       WALLET: true,
       CORPORATE: true,
+      REFERRALS: true,
     });
     expect((await api().get('/api/v1/config/flags')).status).toBe(401);
   });

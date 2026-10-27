@@ -277,7 +277,7 @@ export function createApp(deps: AppDeps): Express {
     now: ctx.now,
     logger: deps.logger,
   });
-  v1.use(staffAuthRouter(ctx, staffAuth, authLimiter, authService));
+  v1.use(staffAuthRouter(ctx, staffAuth, authLimiter));
   v1.use(customersRouter(ctx));
   v1.use(categoriesRouter(ctx));
   v1.use(vehiclesRouter(ctx));

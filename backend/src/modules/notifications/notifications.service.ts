@@ -32,6 +32,7 @@ export type NotifyInput = {
   priority?: 'high' | 'normal';
   /** Do not deliver after this moment (e.g. a ride offer that has already expired). */
   expiresAt?: Date;
+  ttlSeconds?: number;
 };
 
 export type DeliveryReport = {
@@ -173,6 +174,7 @@ export function createNotificationsService(deps: {
           dedupeKey: n.dedupeKey,
           priority: n.priority ?? 'normal',
           ...(n.expiresAt ? { expiresAt: n.expiresAt } : {}),
+          ...(n.ttlSeconds !== undefined ? { ttlSeconds: n.ttlSeconds } : {}),
           nextAttemptAt: now(),
         });
         return true;
@@ -206,9 +208,17 @@ export function createNotificationsService(deps: {
         const t = now();
         const n = await Notification.findOneAndUpdate(
           {
-            status: 'PENDING',
-            nextAttemptAt: { $lte: t },
-            $or: [{ lockUntil: null }, { lockUntil: { $lte: t } }],
+            $or: [
+              {
+                status: 'PENDING',
+                nextAttemptAt: { $lte: t },
+                $or: [{ lockUntil: null }, { lockUntil: { $lte: t } }],
+              },
+              {
+                status: 'SENDING',
+                lockUntil: { $lte: t },
+              },
+            ],
           },
           { status: 'SENDING', lockUntil: new Date(t.getTime() + SEND_LEASE_MS) },
           { returnDocument: 'after' },
@@ -222,6 +232,9 @@ export function createNotificationsService(deps: {
         }
 
         const devices = await Device.find({ userId: n.userId }).sort({ lastSeenAt: -1 }).lean();
+        const ttlSeconds = n.expiresAt
+          ? Math.max(1, Math.ceil((n.expiresAt.getTime() - t.getTime()) / 1000))
+          : ((n as unknown as { ttlSeconds?: number }).ttlSeconds);
         let delivered = 0;
         let transient: string | null = null;
         for (const d of devices) {
@@ -229,8 +242,13 @@ export function createNotificationsService(deps: {
             await push.send(d.token, {
               title: n.title,
               body: n.body,
-              data: n.data instanceof Map ? Object.fromEntries(n.data) : (n.data ?? {}),
+              data: {
+                type: n.type,
+                notificationId: n._id.toString(),
+                ...(n.data instanceof Map ? Object.fromEntries(n.data) : (n.data ?? {})),
+              },
               priority: n.priority as 'high' | 'normal',
+              ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
             });
             delivered += 1;
           } catch (err) {

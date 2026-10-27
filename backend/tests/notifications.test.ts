@@ -349,6 +349,21 @@ describe('delivery that has to survive failures', () => {
       { status: 'SENDING', lockUntil: new Date(Date.now() - 60_000) },
     );
     expect(await env.deliverPush()).toMatchObject({ sent: 1 });
+    const stored = await Notification.findOne({ userId: c.userId }).lean();
+    expect(stored?.status).toBe('SENT');
+    expect(stored?.sentAt).toBeTruthy();
+    expect(stored?.lockUntil).toBeFalsy();
+  });
+
+  it('an unexpired SENDING lock cannot be reclaimed prematurely', async () => {
+    const { c } = await pending();
+    await Notification.updateOne(
+      { userId: c.userId },
+      { status: 'SENDING', lockUntil: new Date(Date.now() + 60_000) },
+    );
+    expect(await env.deliverPush()).toMatchObject({ sent: 0 });
+    const stored = await Notification.findOne({ userId: c.userId }).lean();
+    expect(stored?.status).toBe('SENDING');
   });
 });
 

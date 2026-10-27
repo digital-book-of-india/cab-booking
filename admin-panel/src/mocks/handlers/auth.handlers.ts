@@ -1,63 +1,72 @@
-﻿import { http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 export const authHandlers = [
-  http.post('/api/v1/admin/auth/login', async ({ request }) => {
+  http.post('/api/v1/auth/staff/login', async ({ request }) => {
     const body = (await request.json()) as { email?: string; password?: string };
-    if (body.email === 'mfa@platform.internal') {
-      return HttpResponse.json({
-        success: true,
-        data: {
-          mfaRequired: true,
-          challengeId: 'mfa_ch_9921',
-          expiresInSeconds: 300,
-        },
-        meta: { requestId: 'req_auth_01' },
-      });
-    }
-
-    return HttpResponse.json({
-      success: true,
-      data: {
-        mfaRequired: false,
-        accessToken: 'mock_jwt_access_super_admin',
-        user: {
-          id: 'usr_admin_001',
-          name: 'Super Commander',
-          email: body.email || 'admin@platform.internal',
-          role: 'SUPER_ADMIN',
-          status: 'ACTIVE',
-        },
-      },
-      meta: { requestId: 'req_auth_02' },
-    });
-  }),
-
-  http.post('/api/v1/admin/auth/mfa/verify', async ({ request }) => {
-    const body = (await request.json()) as { challengeId?: string; mfaCode?: string };
-    if (body.mfaCode !== '123456') {
+    if (!body.email || !body.password) {
       return HttpResponse.json(
         {
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Invalid MFA verification code.',
-            requestId: 'req_mfa_err',
+            message: 'Email and password are required.',
+            requestId: 'req_auth_err',
           },
         },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    if (body.email === 'invalid@platform.internal' || body.password === 'wrongpassword') {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: 'Invalid email or password.',
+            requestId: 'req_auth_bad',
+          },
+        },
+        { status: 401 },
       );
     }
 
     return HttpResponse.json({
       success: true,
       data: {
-        accessToken: 'mock_jwt_access_mfa_verified',
+        mfaRequired: true,
+        mfaToken: 'mock_staff_mfa_token_flow_9921',
+      },
+      meta: { requestId: 'req_auth_01' },
+    });
+  }),
+
+  http.post('/api/v1/auth/staff/mfa', async ({ request }) => {
+    const body = (await request.json()) as { mfaToken?: string; code?: string };
+    if (!body.mfaToken || body.code !== '123456') {
+      return HttpResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: 'That code is not right.',
+            requestId: 'req_mfa_err',
+          },
+        },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        accessToken: 'mock_jwt_access_super_admin',
+        refreshToken: 'mock_jwt_refresh_super_admin',
+        expiresInSeconds: 900,
+        recoveryCodesLeft: 8,
         user: {
           id: 'usr_admin_001',
-          name: 'Super Commander',
-          email: 'admin@platform.internal',
           role: 'SUPER_ADMIN',
-          status: 'ACTIVE',
         },
       },
       meta: { requestId: 'req_mfa_ok' },

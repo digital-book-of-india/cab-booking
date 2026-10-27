@@ -56,8 +56,8 @@ export function getSocket(): Socket {
     });
   } else {
     // If token changed, update socket auth
-    if (token && socketInstance.auth && (socketInstance.auth as any).token !== token) {
-      (socketInstance.auth as any).token = token;
+    if (token && socketInstance.auth && (socketInstance.auth as Record<string, unknown>).token !== token) {
+      (socketInstance.auth as Record<string, unknown>).token = token;
     }
   }
 
@@ -71,7 +71,7 @@ export function connectSocket(): Socket {
   const socket = getSocket();
   const token = getAuthToken();
   if (token) {
-    (socket.auth as any).token = token;
+    (socket.auth as Record<string, unknown>).token = token;
   }
   if (!socket.connected) {
     socket.connect();
@@ -97,6 +97,7 @@ export interface DriverLocationPayload {
   headingDegrees?: number;
   speedKmh?: number;
   recordedAt?: string;
+  simulated?: boolean;
 }
 
 /**
@@ -108,18 +109,20 @@ export function onDriverLocation(
 ): () => void {
   const socket = getSocket();
 
-  const handleUpdate = (payload: any) => {
+  const handleUpdate = (payload: unknown) => {
     // Unpack envelope if wrapped
-    const data = payload?.data || payload;
+    const raw = payload as { data?: unknown } | undefined;
+    const data = (raw?.data || payload) as Partial<DriverLocationPayload> | undefined;
     if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
       callback({
-        driverId: data.driverId || data.userId,
+        driverId: data.driverId || data.userId || '',
         userId: data.userId,
         lat: data.lat,
         lng: data.lng,
         headingDegrees: data.headingDegrees ?? 0,
         speedKmh: data.speedKmh ?? 0,
         recordedAt: data.recordedAt || new Date().toISOString(),
+        simulated: Boolean(data.simulated),
       });
     }
   };

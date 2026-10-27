@@ -13,8 +13,9 @@ import { locationUpdateSchema } from '../modules/presence/presence.schemas';
 import type { PresenceService } from '../modules/presence/presence.service';
 import { User } from '../modules/users/user.model';
 import { DriverProfile } from '../modules/drivers/driverProfile.model';
+import { AuditLog } from '../modules/audit/auditLog.model';
 import type { RealtimeBus } from './bus';
-import { ClientEvents, ServerEvents, type Envelope, type ServerEventName } from './events';
+import { ClientEvents, ServerEvents, type Envelope, type ServerEventName, type DriverLocationPayload } from './events';
 
 export type SocketServerOptions = {
   accessSecret: string;
@@ -38,6 +39,16 @@ const asAck = (fn: unknown): Ack => (typeof fn === 'function' ? (fn as Ack) : ()
 
 const userRoom = (userId: string) => `user:${userId}`;
 const OPS_ROOM = 'ops';
+
+const simulateDriverLocationSchema = z
+  .object({
+    driverId: z.string().trim().min(1, 'driverId is required').max(100),
+    lat: z.number().min(-90, 'Latitude must be between -90 and 90').max(90, 'Latitude must be between -90 and 90'),
+    lng: z.number().min(-180, 'Longitude must be between -180 and 180').max(180, 'Longitude must be between -180 and 180'),
+    headingDegrees: z.number().min(0).max(360).optional(),
+    speedKmh: z.number().min(0).max(250).optional(),
+  })
+  .strict();
 
 function envelope<T extends object>(type: ServerEventName, data: T): Envelope<T> {
   return { id: randomUUID(), type, at: new Date().toISOString(), data };
@@ -232,19 +243,28 @@ export function createSocketBus() {
           const profile = await DriverProfile.findOne({ userId: current.userId })
             .select('_id currentVehicleId activeRideId')
             .lean();
-          const driverId = profile?._id ? profile._id.toString() : current.userId;
-          const telemetryData = {
-            driverId,
-            userId: current.userId,
-            lat: input.lat,
-            lng: input.lng,
-            headingDegrees: input.headingDegrees ?? 0,
-            speedKmh: input.speedMetersPerSecond ? Math.round(input.speedMetersPerSecond * 3.6) : 0,
-            recordedAt: new Date().toISOString(),
-          };
 
-          server.in(OPS_ROOM).emit('driver.location.updated', telemetryData);
-          server.in(OPS_ROOM).emit(ServerEvents.DRIVER_LOCATION, envelope(ServerEvents.DRIVER_LOCATION, telemetryData));
+          // If the driver is on an active ride, notifier.driverMoved already emitted DRIVER_LOCATION_UPDATED
+          // to OPS_ROOM. Only emit from here if the driver is not on an active ride, preventing duplicate events.
+          if (!profile?.activeRideId) {
+            const driverId = profile?._id ? profile._id.toString() : current.userId;
+            const telemetryData: DriverLocationPayload = {
+              driverId,
+              userId: current.userId,
+              lat: input.lat,
+              lng: input.lng,
+              headingDegrees: input.headingDegrees ?? 0,
+              speedKmh: input.speedMetersPerSecond ? Math.round(input.speedMetersPerSecond * 3.6) : 0,
+              recordedAt: new Date().toISOString(),
+            };
+
+            server
+              .in(OPS_ROOM)
+              .emit(
+                ServerEvents.DRIVER_LOCATION_UPDATED,
+                envelope(ServerEvents.DRIVER_LOCATION_UPDATED, telemetryData),
+              );
+          }
 
           reply({ ok: true, data: updateData });
         } catch (err) {
@@ -255,31 +275,53 @@ export function createSocketBus() {
         }
       });
 
-      socket.on('ops:simulate_driver_location', async (payload: unknown, ack?: unknown) => {
+      socket.on(ClientEvents.OPS_SIMULATE_DRIVER_LOCATION, async (payload: unknown, ack?: unknown) => {
         const reply = asAck(ack);
         try {
           const current = authOf(socket);
-          if (!OPS_ROOM_ROLES.includes(current.role)) throw new AppError('FORBIDDEN');
-          const p = payload as {
-            driverId: string;
-            lat: number;
-            lng: number;
-            headingDegrees?: number;
-            speedKmh?: number;
-          };
-          if (p && p.driverId && typeof p.lat === 'number' && typeof p.lng === 'number') {
-            const telemetry = {
-              driverId: p.driverId,
-              lat: p.lat,
-              lng: p.lng,
-              headingDegrees: p.headingDegrees ?? 0,
-              speedKmh: p.speedKmh ?? 35,
-              recordedAt: new Date().toISOString(),
-            };
-            server.in(OPS_ROOM).emit('driver.location.updated', telemetry);
-            server.in(OPS_ROOM).emit(ServerEvents.DRIVER_LOCATION, envelope(ServerEvents.DRIVER_LOCATION, telemetry));
-            reply({ ok: true });
+          if (!current || Date.now() > current.expiresAtMs) {
+            throw new AppError('UNAUTHENTICATED', 'Authentication required for simulation.');
           }
+          if (current.role !== 'SUPER_ADMIN') {
+            throw new AppError('FORBIDDEN', 'Only SUPER_ADMIN may simulate driver locations.');
+          }
+
+          const parsed = simulateDriverLocationSchema.parse(payload);
+
+          // Write audit log using existing AuditLog model
+          await AuditLog.create({
+            actorUserId: current.userId,
+            actorRole: current.role,
+            action: 'driver.location.simulate',
+            targetType: 'DRIVER',
+            targetId: parsed.driverId,
+            metadata: {
+              lat: parsed.lat,
+              lng: parsed.lng,
+              headingDegrees: parsed.headingDegrees ?? 0,
+              speedKmh: parsed.speedKmh ?? 35,
+              simulated: true,
+            },
+          });
+
+          const telemetry: DriverLocationPayload = {
+            driverId: parsed.driverId,
+            lat: parsed.lat,
+            lng: parsed.lng,
+            headingDegrees: parsed.headingDegrees ?? 0,
+            speedKmh: parsed.speedKmh ?? 35,
+            recordedAt: new Date().toISOString(),
+            simulated: true,
+          };
+
+          server
+            .in(OPS_ROOM)
+            .emit(
+              ServerEvents.DRIVER_LOCATION_UPDATED,
+              envelope(ServerEvents.DRIVER_LOCATION_UPDATED, telemetry),
+            );
+
+          reply({ ok: true, data: { simulated: true } });
         } catch (err) {
           reply(errorReply(err));
         }

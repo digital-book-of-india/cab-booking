@@ -56,6 +56,7 @@ Keep a short list of recent `id`s and ignore repeats. Ignore unknown event types
 | `ride:status` | the **assigned driver** | `{ bookingId, rideId, status }`, from `DRIVER_ASSIGNED` onward, including `CANCELLED` by the rider |
 | `ride:update` | rider and/or driver | `{ bookingId, rideId, kind, ... }` for things that are not a status change: `STOP_ARRIVED` / `STOP_DEPARTED` (`index`, to the rider), `DESTINATION_REQUESTED` (to the driver: `requestId`, `drop`, `estimatedTotalPaise`, `expiresAt`), `DESTINATION_ACCEPTED` / `DESTINATION_DECLINED` (to the rider; accepted also to the driver), `FEE_WAIVED` (to the rider) |
 | `driver:location` | the **rider**, only while the ride is active | `{ bookingId, rideId, lat, lng, headingDegrees?, recordedAt }`, at most every 2 s |
+| `driver.location.updated` | staff in the ops room (fleet radar) | `{ driverId, userId?, bookingId?, rideId?, lat, lng, headingDegrees?, speedKmh?, recordedAt, simulated?: boolean }` |
 | `ops:booking` | staff roles OPS, SUPPORT, SUPER_ADMIN | `{ bookingId, status }` for any booking |
 | `ops:sos` | staff in the ops room (SAFETY_ADMIN, OPS, SUPER_ADMIN; SUPPORT also receives it but cannot open incidents) | `{ incidentId, bookingId, kind }`, `kind` = `TRIGGERED` \| `ESCALATED` (nobody acknowledged within 2 minutes; super admins get this one again). Then `GET /admin/incidents/{incidentId}`. |
 | `auth:expired`, `auth:revoked` | everyone | see above. A staff member whose role is changed also gets `auth:revoked`: sign in again. |
@@ -70,10 +71,18 @@ Statuses are the values in `docs/enums.md`. Unknown future statuses: show "in pr
 |---|---|---|---|
 | `location:update` | **driver** | same body as `POST /drivers/me/location` (`lat`, `lng`, optional `accuracyMeters`, `headingDegrees`, `speedMetersPerSecond`, `recordedAt`) | `{ ok: true, data: { recordedAt } }` or `{ ok: false, error: { code, message } }` |
 | `auth:refresh` | everyone | `{ token }` | `{ ok: true }` or `{ ok: false, error }` |
+| `ops:simulate_driver_location` | **SUPER_ADMIN** only | `{ driverId, lat, lng, headingDegrees?, speedKmh? }` | `{ ok: true, data: { simulated: true } }` or `{ ok: false, error: { code, message } }` |
 
 `location:update` follows exactly the REST rules: send about **every 5 s**; more than one per second returns `RATE_LIMITED`; a poor-accuracy, stale or impossible fix returns `LOCATION_REJECTED`; an offline driver gets `DRIVER_NOT_ELIGIBLE`. Always read the ack. REST and socket location updates are interchangeable; use REST when the socket is down.
 
 The server stores a position only when the driver has moved about 25 m or 10 s have passed, so a parked driver is cheap. You don't need to do anything for this.
+
+### Driver Location Simulation (`ops:simulate_driver_location`)
+- **Direction:** Client-to-Server
+- **Authorization:** Authenticated socket session with authoritative server-side role `SUPER_ADMIN` strictly required. Requests from unauthenticated sockets return `UNAUTHENTICATED`; requests from any non-`SUPER_ADMIN` roles return `FORBIDDEN`.
+- **Validation:** Strict coordinates check: `lat` must be in `[-90, 90]`, `lng` must be in `[-180, 180]`, optional `headingDegrees` in `[0, 360]`, `speedKmh` in `[0, 250]`. Malformed inputs return `VALIDATION_ERROR`.
+- **Auditing:** Every simulation request is logged to the `AuditLog` collection with actor `userId`, role `SUPER_ADMIN`, action `driver.location.simulate`, target driver, coordinates, and timestamp.
+- **Isolation & Safety:** Simulation events are marked with `simulated: true` in the emitted `driver.location.updated` event to the `ops` room. They **never** overwrite canonical driver GPS data in `DriverProfile.currentLocation`, never influence dispatch decisions or matching, and are never sent to riders.
 
 ## 5. Push notifications (Firebase)
 
