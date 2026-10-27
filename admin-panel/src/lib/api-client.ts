@@ -9,7 +9,7 @@ export function ensureMswReady(): Promise<boolean> {
   }
   if (!mswReadyPromise) {
     mswReadyPromise = import('@/mocks/browser')
-      .then(({ worker }) => worker.start())
+      .then(({ worker }) => worker.start({ onUnhandledFrame: 'bypass', quiet: true }))
       .then(() => true)
       .catch((err) => {
         console.warn('MSW worker failed to start:', err);

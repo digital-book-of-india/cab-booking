@@ -98,7 +98,7 @@ export default function CustomerProfilePage() {
         const u = userRes.value.data?.data || userRes.value.data;
         setCustomer(u);
       } else {
-        console.error('Error fetching user detail:', userRes.reason);
+        console.warn('Error fetching user detail:', userRes.reason);
       }
 
       if (walletRes.status === 'fulfilled') {

@@ -41,7 +41,7 @@ export default function CustomersPage() {
       const data = res.data?.data?.items || res.data?.data || [];
       setCustomers(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error('Failed to load customers:', err);
+      console.warn('Failed to load customers:', err?.message || err);
     } finally {
       setLoading(false);
     }

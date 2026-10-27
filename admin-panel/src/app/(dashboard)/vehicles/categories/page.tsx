@@ -56,7 +56,7 @@ export default function CabCategoriesPage() {
       const list = res.data?.data || res.data || [];
       setCategories(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      console.error('Failed to load cab categories:', err);
+      console.warn('Failed to load cab categories:', err?.message || err);
       showToast('Failed to load fleet categories', 'error');
     } finally {
       setLoading(false);

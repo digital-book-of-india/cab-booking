@@ -83,7 +83,7 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
       const res = await apiClient.get(`/admin/drivers/${driverId}`);
       setDriver(res.data?.data || res.data);
     } catch (err: any) {
-      console.error('Failed to load driver KYC:', err);
+      console.warn('Failed to load driver KYC:', err?.message || err);
       showToast('Failed to load driver KYC inspection details', 'error');
     } finally {
       setLoading(false);

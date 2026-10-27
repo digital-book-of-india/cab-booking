@@ -99,7 +99,7 @@ export default function LiveMapPage() {
         : [];
       setDrivers(normalized);
     } catch (err: any) {
-      console.error('Failed to load fleet:', err);
+      console.warn('Failed to load fleet:', err?.message || err);
     } finally {
       setLoading(false);
     }

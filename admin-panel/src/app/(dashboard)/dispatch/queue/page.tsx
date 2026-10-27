@@ -55,7 +55,7 @@ export default function DispatchQueuePage() {
       const items: DispatchQueueItem[] = Array.isArray(raw) ? raw : [];
       setQueue(items);
     } catch (err: any) {
-      console.error('Failed to load dispatch queue:', err);
+      console.warn('Failed to load dispatch queue:', err?.message || err);
     } finally {
       setLoading(false);
     }

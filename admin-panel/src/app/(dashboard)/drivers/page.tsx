@@ -72,7 +72,7 @@ export default function DriversPage() {
 
       setDrivers(normalized);
     } catch (err: any) {
-      console.error('Failed to load drivers:', err);
+      console.warn('Failed to load drivers:', err?.message || err);
     } finally {
       setLoading(false);
     }
