@@ -606,3 +606,27 @@ Enterprise operations and fleet management dashboard built with Next.js 16 (App 
 - [x] **Dev 2 Verification Suite:** `npm run test:dev2` executing 56 acceptance and route tests with idempotency cache cleanup (56/56 PASS).
 - [x] **Master Test Suite:** `npm run test:all` executing all 124 tests in sequence with 100% green exit code 0.
 - [x] **Static Code Analysis:** `npm run lint` passing with 0 errors and 0 warnings; `npx tsc --noEmit` passing with 0 errors.
+
+## 16. Realtime Contract & API Specification Sync (Phase 7 Complete)
+- **Canonical Socket.IO Event Naming Conventions:**
+  - Client-to-Server Events:
+    - `location:update`: Driver GPS telemetry ping (`{ lat, lng, accuracyMeters?, headingDegrees?, speedMetersPerSecond?, recordedAt }`).
+    - `auth:refresh`: Live token rotation on socket before 15m expiration (`{ token }`).
+    - `ops:simulate_driver_location`: SUPER_ADMIN only simulation event for fleet radar testing (`{ driverId, lat, lng, headingDegrees?, speedKmh? }`).
+  - Server-to-Client Events:
+    - `hello`: Handshake subscription confirmation (`{ userId, role, serverTime }`).
+    - `driver.location.updated`: Ops fleet radar room driver telemetry broadcast (`{ driverId, userId?, bookingId?, rideId?, lat, lng, headingDegrees?, speedKmh?, recordedAt, simulated?: boolean }`).
+    - `driver:location`: Rider active ride tracking stream (`{ bookingId, rideId, lat, lng, headingDegrees?, recordedAt }`).
+    - `booking:status`: Customer booking status transition (`{ bookingId, rideId | null, status }`).
+    - `ride:status`: Assigned driver ride transition (`{ bookingId, rideId, status }`).
+    - `ride:update`: Non-status mutations (`STOP_ARRIVED`, `STOP_DEPARTED`, `DESTINATION_REQUESTED`, `DESTINATION_ACCEPTED`, `FEE_WAIVED`).
+    - `offer:new` & `offer:closed`: Driver dispatch dispatch/expiry stream.
+    - `ops:booking`: Staff global booking status monitor.
+    - `ops:sos`: Real-time emergency desk alert stream (`{ incidentId, bookingId, kind }`).
+    - `auth:expired` & `auth:revoked`: Connection lifecycle management.
+- **API Documentation & Contract Status:**
+  - `backend/src/docs/routes.ts`: 100% matched to active routes in Express router (240 routes verified).
+  - Legacy/unsafe `/admin/auth/login` and `/admin/auth/mfa/verify` routes completely purged.
+  - OpenAPI 3.0 specification (`/api/v1/openapi.json`) dynamically generated from canonical route registry.
+  - Postman collection regenerated (240 requests in `postman/`).
+  - Contract test suite `tests/contract.test.ts`: 4/4 suites PASS.

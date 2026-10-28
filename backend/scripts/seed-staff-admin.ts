@@ -1,22 +1,24 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const { scrypt, randomBytes } = require('crypto');
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import { scrypt, randomBytes } from 'node:crypto';
 
-function derive(password, salt, n, r, p) {
+function derive(password: string, salt: Buffer, n: number, r: number, p: number): Promise<Buffer> {
   const options = { N: n, r, p, maxmem: 64 * 1024 * 1024 };
   return new Promise((resolve, reject) =>
-    scrypt(password, salt, 64, options, (err, key) => (err ? reject(err) : resolve(key)))
+    scrypt(password, salt, 64, options, (err, key) => (err ? reject(err) : resolve(key as Buffer))),
   );
 }
 
-async function hashPassword(password) {
+async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const key = await derive(password.normalize('NFKC'), salt, 16384, 8, 1);
   return `scrypt$16384$8$1$${salt.toString('base64')}$${key.toString('base64')}`;
 }
 
-async function main() {
-  await mongoose.connect(process.env.MONGODB_URI);
+async function main(): Promise<void> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI missing');
+  await mongoose.connect(uri);
   const userColl = mongoose.connection.collection('users');
   const credColl = mongoose.connection.collection('staffcredentials');
 
@@ -31,6 +33,10 @@ async function main() {
       updatedAt: new Date(),
     });
     adminUser = await userColl.findOne({ _id: res.insertedId });
+  }
+
+  if (!adminUser) {
+    throw new Error('Failed to find or create SUPER_ADMIN user');
   }
 
   const passwordHash = await hashPassword('admin@123');
@@ -52,14 +58,14 @@ async function main() {
         createdAt: new Date(),
       },
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   console.log('SEED_STAFF_SUCCESS: admin@platform.internal registered with password admin@123');
   await mongoose.disconnect();
 }
 
-main().catch((err) => {
-  console.error('Error:', err);
+main().catch((err: Error) => {
+  console.error('Error:', err.message);
   process.exit(1);
 });

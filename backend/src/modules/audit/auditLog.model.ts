@@ -16,4 +16,9 @@ const auditLogSchema = new Schema(
 auditLogSchema.index({ targetType: 1, targetId: 1, createdAt: -1 });
 auditLogSchema.index({ createdAt: -1 });
 
+// Hardening: Audit logs are strictly immutable and append-only
+auditLogSchema.pre(['updateOne', 'updateMany', 'deleteOne', 'deleteMany'], function () {
+  throw new Error('Audit logs are immutable append-only records and cannot be modified or deleted.');
+});
+
 export const AuditLog = model('AuditLog', auditLogSchema);

@@ -13,7 +13,16 @@ import { createHmac } from 'node:crypto';
 
 // ── Minimal inline models (avoid importing the full app) ──────────────────────
 
-const userSchema = new mongoose.Schema(
+interface IUserDoc {
+  _id: mongoose.Types.ObjectId;
+  role?: string;
+  phone?: string;
+  name?: string;
+  accountStatus?: string;
+  phoneVerifiedAt?: Date;
+}
+
+const userSchema = new mongoose.Schema<IUserDoc>(
   {
     role: String,
     phone: { type: String, unique: true },
@@ -23,9 +32,26 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
-const User = mongoose.models['User'] ?? mongoose.model('User', userSchema);
+const User =
+  (mongoose.models['User'] as mongoose.Model<IUserDoc>) ??
+  mongoose.model<IUserDoc>('User', userSchema);
 
-const credSchema = new mongoose.Schema(
+interface IStaffCredDoc {
+  _id: mongoose.Types.ObjectId;
+  userId?: mongoose.Types.ObjectId;
+  email?: string;
+  passwordHash?: string;
+  totpSecretSealed?: string;
+  totpEnabledAt?: Date;
+  lastTotpStep?: number;
+  recoveryHashes?: string[];
+  failedCount?: number;
+  lockedUntil?: Date;
+  passwordChangedAt?: Date;
+  lastLoginAt?: Date;
+}
+
+const credSchema = new mongoose.Schema<IStaffCredDoc>(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
     email: { type: String, unique: true, lowercase: true, trim: true },
@@ -42,7 +68,8 @@ const credSchema = new mongoose.Schema(
   { timestamps: true },
 );
 const StaffCredential =
-  mongoose.models['StaffCredential'] ?? mongoose.model('StaffCredential', credSchema);
+  (mongoose.models['StaffCredential'] as mongoose.Model<IStaffCredDoc>) ??
+  mongoose.model<IStaffCredDoc>('StaffCredential', credSchema);
 
 import { hashPassword } from '../src/common/passwords';
 
@@ -61,7 +88,7 @@ async function main() {
   console.log('✅ Connected to:', mongoose.connection.name);
 
   // 1. Upsert the User document
-  let user: any = await (User as any).findOne({ phone: PHONE });
+  let user = await User.findOne({ phone: PHONE });
   if (!user) {
     user = await User.create({
       phone: PHONE,
@@ -78,7 +105,7 @@ async function main() {
   }
 
   // 2. Clear any rate-limit lock on existing credential (if any)
-  await (StaffCredential as any).updateOne(
+  await StaffCredential.updateOne(
     { email: EMAIL },
     { $set: { failedCount: 0 }, $unset: { lockedUntil: 1 } },
   );
@@ -96,7 +123,7 @@ async function main() {
   const dummySealedSecret = sealKey.toString('hex').slice(0, 64);
 
   // 5. Upsert StaffCredential
-  const result: any = await (StaffCredential as any).findOneAndUpdate(
+  const result = await StaffCredential.findOneAndUpdate(
     { userId: user._id },
     {
       $set: {

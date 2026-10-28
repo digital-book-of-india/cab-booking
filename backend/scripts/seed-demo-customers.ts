@@ -6,6 +6,29 @@ import { User } from '../src/modules/users/user.model';
 import { CustomerProfile } from '../src/modules/customers/customerProfile.model';
 import { Booking } from '../src/modules/bookings/booking.model';
 
+interface IUserDoc {
+  _id: Types.ObjectId;
+  phone: string;
+  role: string;
+  name?: string;
+  accountStatus: string;
+  phoneVerifiedAt?: Date;
+  createdAt?: Date;
+}
+
+interface ICustomerProfileDoc {
+  userId: Types.ObjectId;
+  email?: string;
+  ratingCount?: number;
+  ratingSum?: number;
+  bookingRestricted?: boolean;
+  bookingRestrictionReason?: string | null;
+  bookingRestrictedAt?: Date;
+}
+
+const UserModel = User as unknown as mongoose.Model<IUserDoc>;
+const CustomerProfileModel = CustomerProfile as unknown as mongoose.Model<ICustomerProfileDoc>;
+
 async function seed() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI missing');
@@ -16,9 +39,9 @@ async function seed() {
   const categoryId = new Types.ObjectId();
 
   // 1. Rahul Sharma (Clean, Active, 3 bookings)
-  let rahul: any = await (User as any).findOne({ phone: '+919876543210' });
+  let rahul = await UserModel.findOne({ phone: '+919876543210' });
   if (!rahul) {
-    rahul = await User.create({
+    rahul = await UserModel.create({
       phone: '+919876543210',
       role: 'CUSTOMER',
       name: 'Rahul Sharma',
@@ -28,7 +51,7 @@ async function seed() {
     });
   }
 
-  await (CustomerProfile as any).findOneAndUpdate(
+  await CustomerProfileModel.findOneAndUpdate(
     { userId: rahul._id },
     {
       $set: {
@@ -125,9 +148,9 @@ async function seed() {
   }
 
   // 2. Priya Patel (Restricted rider)
-  let priya: any = await (User as any).findOne({ phone: '+919812345678' });
+  let priya = await UserModel.findOne({ phone: '+919812345678' });
   if (!priya) {
-    priya = await User.create({
+    priya = await UserModel.create({
       phone: '+919812345678',
       role: 'CUSTOMER',
       name: 'Priya Patel',
@@ -137,7 +160,7 @@ async function seed() {
     });
   }
 
-  await (CustomerProfile as any).findOneAndUpdate(
+  await CustomerProfileModel.findOneAndUpdate(
     { userId: priya._id },
     {
       $set: {
@@ -185,9 +208,9 @@ async function seed() {
   }
 
   // 3. Amit Verma (Suspended user)
-  let amit: any = await (User as any).findOne({ phone: '+919898989898' });
+  let amit = await UserModel.findOne({ phone: '+919898989898' });
   if (!amit) {
-    amit = await User.create({
+    amit = await UserModel.create({
       phone: '+919898989898',
       role: 'CUSTOMER',
       name: 'Amit Verma',
@@ -197,7 +220,7 @@ async function seed() {
     });
   }
 
-  await (CustomerProfile as any).findOneAndUpdate(
+  await CustomerProfileModel.findOneAndUpdate(
     { userId: amit._id },
     {
       $set: {
