@@ -29,14 +29,9 @@ export default function LoginPage() {
 
     try {
       if (!mfaChallengeId) {
-        // Step 1: Staff email + password verification with endpoint fallback
-        let res;
+        // Step 1: Staff email + password verification
         const payload = { email: email.trim(), password };
-        try {
-          res = await apiClient.post('/auth/staff/login', payload);
-        } catch {
-          res = await apiClient.post('/admin/auth/login', payload);
-        }
+        const res = await apiClient.post('/auth/staff/login', payload);
 
         const data = res.data?.data || res.data;
         if (data?.mfaRequired && data?.mfaToken) {
@@ -45,19 +40,11 @@ export default function LoginPage() {
           throw new Error('MFA challenge required.');
         }
       } else {
-        // Step 2: MFA TOTP verification using server-issued challenge token with fallback
-        let res;
-        try {
-          res = await apiClient.post('/auth/staff/mfa', {
-            mfaToken: mfaChallengeId,
-            code: mfaCode.trim(),
-          });
-        } catch {
-          res = await apiClient.post('/admin/auth/mfa/verify', {
-            challengeId: mfaChallengeId,
-            mfaCode: mfaCode.trim(),
-          });
-        }
+        // Step 2: MFA TOTP verification using server-issued challenge token
+        const res = await apiClient.post('/auth/staff/mfa', {
+          mfaToken: mfaChallengeId,
+          code: mfaCode.trim(),
+        });
 
         const data = res.data?.data || res.data;
         if (!data?.accessToken) {
