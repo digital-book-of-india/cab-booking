@@ -1,11 +1,40 @@
 import { config } from 'dotenv';
 config();
 
-import mongoose, { Types } from 'mongoose';
+import mongoose from 'mongoose';
 import { Booking } from '../src/modules/bookings/booking.model';
 import { User } from '../src/modules/users/user.model';
 import { CabCategory } from '../src/modules/categories/cabCategory.model';
 import { ServiceZone } from '../src/modules/zones/serviceZone.model';
+
+interface IServiceZoneDoc {
+  _id: mongoose.Types.ObjectId;
+  code: string;
+  name: string;
+  cityCode: string;
+  active: boolean;
+  polygon: { type: string; coordinates: number[][][] };
+  operatingHours: { start: string; end: string };
+}
+interface ICabCategoryDoc {
+  _id: mongoose.Types.ObjectId;
+  code: string;
+  name: string;
+  capacity: number;
+  active: boolean;
+  displayOrder: number;
+}
+interface IUserDoc {
+  _id: mongoose.Types.ObjectId;
+  phone: string;
+  role: string;
+  name?: string;
+  accountStatus: string;
+}
+
+const ServiceZoneModel = ServiceZone as unknown as mongoose.Model<IServiceZoneDoc>;
+const CabCategoryModel = CabCategory as unknown as mongoose.Model<ICabCategoryDoc>;
+const UserModel = User as unknown as mongoose.Model<IUserDoc>;
 
 async function seed() {
   const uri = process.env.MONGODB_URI;
@@ -14,9 +43,9 @@ async function seed() {
   console.log('Connected to DB');
 
   // 1. Ensure Service Zone exists
-  let zone: any = await ServiceZone.findOne({ code: 'DELHI_NCR' });
+  let zone = await ServiceZoneModel.findOne({ code: 'DELHI_NCR' });
   if (!zone) {
-    zone = await ServiceZone.create({
+    zone = await ServiceZoneModel.create({
       code: 'DELHI_NCR',
       name: 'Delhi NCR Central Zone',
       cityCode: 'DELHI',
@@ -42,10 +71,10 @@ async function seed() {
   }
 
   // 2. Fetch Categories & Customers
-  const sedan: any = await CabCategory.findOne({ code: 'SEDAN' });
-  const suv: any = await CabCategory.findOne({ code: 'SUV' });
-  const rahul: any = await (User as any).findOne({ phone: '+919876543210' });
-  const priya: any = await (User as any).findOne({ phone: '+919812345678' });
+  const sedan = await CabCategoryModel.findOne({ code: 'SEDAN' });
+  const suv = await CabCategoryModel.findOne({ code: 'SUV' });
+  const rahul = await UserModel.findOne({ phone: '+919876543210' });
+  const priya = await UserModel.findOne({ phone: '+919812345678' });
 
   if (!sedan || !suv || !rahul || !priya) {
     throw new Error('Categories or customers missing. Run earlier seed scripts first.');

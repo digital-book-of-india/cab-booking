@@ -7,6 +7,56 @@ import { DriverProfile } from '../src/modules/drivers/driverProfile.model';
 import { Vehicle } from '../src/modules/vehicles/vehicle.model';
 import { CabCategory } from '../src/modules/categories/cabCategory.model';
 
+interface ICabCategoryDoc {
+  _id: mongoose.Types.ObjectId;
+  code: string;
+  name: string;
+  capacity: number;
+  active: boolean;
+  displayOrder: number;
+}
+
+interface IUserDoc {
+  _id: mongoose.Types.ObjectId;
+  phone: string;
+  role: string;
+  name: string;
+  accountStatus: string;
+  phoneVerifiedAt: Date;
+}
+
+interface IDriverProfileDoc {
+  _id: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  approvalStatus: string;
+  onlineStatus: string;
+  city?: string;
+  currentVehicleId?: mongoose.Types.ObjectId;
+  currentLocation?: { type: string; coordinates: number[] };
+  locationUpdatedAt?: Date;
+  headingDegrees?: number;
+  ratingCount?: number;
+  ratingSum?: number;
+}
+
+interface IVehicleDoc {
+  _id: mongoose.Types.ObjectId;
+  driverId: mongoose.Types.ObjectId;
+  categoryId: mongoose.Types.ObjectId;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  color: string;
+  seats: number;
+  verificationStatus: string;
+  active: boolean;
+}
+
+const CabCategoryModel = CabCategory as unknown as mongoose.Model<ICabCategoryDoc>;
+const UserModel = User as unknown as mongoose.Model<IUserDoc>;
+const DriverProfileModel = DriverProfile as unknown as mongoose.Model<IDriverProfileDoc>;
+const VehicleModel = Vehicle as unknown as mongoose.Model<IVehicleDoc>;
+
 async function seed() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI missing');
@@ -14,9 +64,9 @@ async function seed() {
   console.log('Connected to DB');
 
   // 1. Create or Find Cab Categories
-  let sedan: any = await CabCategory.findOne({ code: 'SEDAN' });
+  let sedan = await CabCategoryModel.findOne({ code: 'SEDAN' });
   if (!sedan) {
-    sedan = await CabCategory.create({
+    sedan = await CabCategoryModel.create({
       code: 'SEDAN',
       name: 'Prime Sedan',
       capacity: 4,
@@ -25,9 +75,9 @@ async function seed() {
     });
   }
 
-  let suv: any = await CabCategory.findOne({ code: 'SUV' });
+  let suv = await CabCategoryModel.findOne({ code: 'SUV' });
   if (!suv) {
-    suv = await CabCategory.create({
+    suv = await CabCategoryModel.create({
       code: 'SUV',
       name: 'Prime SUV',
       capacity: 6,
@@ -36,9 +86,9 @@ async function seed() {
     });
   }
 
-  let hatch: any = await CabCategory.findOne({ code: 'HATCHBACK' });
+  let hatch = await CabCategoryModel.findOne({ code: 'HATCHBACK' });
   if (!hatch) {
-    hatch = await CabCategory.create({
+    hatch = await CabCategoryModel.create({
       code: 'HATCHBACK',
       name: 'Mini Hatchback',
       capacity: 4,
@@ -111,9 +161,9 @@ async function seed() {
 
   for (const d of demoDrivers) {
     // Upsert User
-    let u: any = await (User as any).findOne({ phone: d.phone });
+    let u = await UserModel.findOne({ phone: d.phone });
     if (!u) {
-      u = await User.create({
+      u = await UserModel.create({
         phone: d.phone,
         role: 'DRIVER',
         name: d.name,
@@ -123,9 +173,9 @@ async function seed() {
     }
 
     // Upsert DriverProfile
-    let dp: any = await (DriverProfile as any).findOne({ userId: u._id });
+    let dp = await DriverProfileModel.findOne({ userId: u._id });
     if (!dp) {
-      dp = await DriverProfile.create({
+      dp = await DriverProfileModel.create({
         userId: u._id,
         approvalStatus: 'APPROVED',
         onlineStatus: 'ONLINE',
@@ -137,7 +187,7 @@ async function seed() {
         ratingSum: 136,
       });
     } else {
-      await DriverProfile.updateOne(
+      await DriverProfileModel.updateOne(
         { _id: dp._id },
         {
           approvalStatus: 'APPROVED',
@@ -150,9 +200,9 @@ async function seed() {
     }
 
     // Upsert Vehicle
-    let veh: any = await (Vehicle as any).findOne({ registrationNumber: d.reg });
+    let veh = await VehicleModel.findOne({ registrationNumber: d.reg });
     if (!veh) {
-      veh = await Vehicle.create({
+      veh = await VehicleModel.create({
         driverId: dp._id,
         categoryId: d.categoryId,
         registrationNumber: d.reg,
@@ -166,7 +216,7 @@ async function seed() {
     }
 
     // Link vehicle to driver
-    await DriverProfile.updateOne({ _id: dp._id }, { currentVehicleId: veh._id });
+    await DriverProfileModel.updateOne({ _id: dp._id }, { currentVehicleId: veh._id });
     console.log(`Driver ready: ${d.name} (${d.reg}) @ [${d.lat}, ${d.lng}]`);
   }
 

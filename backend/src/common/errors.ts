@@ -61,6 +61,10 @@ export const ErrorCodes = {
     status: 403,
     message: 'Your account is restricted from creating new bookings.',
   },
+  CONCURRENT_BOOKING_NOT_ALLOWED: {
+    status: 409,
+    message: 'You already have an active booking in progress. Please complete or cancel it before booking again.',
+  },
   UNPAID_BALANCE: {
     status: 402,
     message: 'You have an unpaid ride. Please pay it before booking another.',

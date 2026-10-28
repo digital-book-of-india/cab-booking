@@ -180,6 +180,29 @@ export function createBookingsService(deps: {
             customerProfile.bookingRestrictionReason || 'Your account is restricted from creating bookings.',
           );
         }
+
+        // Hardening (Phase 10): Configurable single active booking concurrency guard
+        if (process.env.STRICT_SINGLE_ACTIVE_BOOKING === 'true') {
+          const hasActiveBooking = await Booking.exists({
+            customerId,
+            status: {
+              $in: [
+                'REQUESTED',
+                'DISPATCHING',
+                'DRIVER_ASSIGNED',
+                'DRIVER_ARRIVING',
+                'DRIVER_ARRIVED',
+                'IN_PROGRESS',
+              ],
+            },
+          });
+          if (hasActiveBooking) {
+            throw new AppError(
+              'CONCURRENT_BOOKING_NOT_ALLOWED',
+              'You already have an active booking in progress. Please complete or cancel it before booking again.',
+            );
+          }
+        }
       }
       let contactPhone: string | undefined;
       if (input.pickup?.contactPhone) {
