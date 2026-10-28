@@ -30,10 +30,15 @@ export const updateVehicleSchema = z
 
 export const verificationSchema = z
   .object({
-    status: z.enum(['VERIFIED', 'REJECTED']),
+    status: z.enum(['VERIFIED', 'REJECTED']).optional(),
+    verificationStatus: z.enum(['VERIFIED', 'REJECTED']).optional(),
     reason: z.string().trim().min(3).max(500).optional(),
+    reasonCode: z.string().trim().min(3).max(500).optional(),
   })
-  .strict()
+  .transform((v) => ({
+    status: (v.status ?? v.verificationStatus) as 'VERIFIED' | 'REJECTED',
+    reason: v.reason ?? v.reasonCode,
+  }))
   .refine((v) => v.status === 'VERIFIED' || !!v.reason, {
     message: 'reason is required when rejecting',
     path: ['reason'],

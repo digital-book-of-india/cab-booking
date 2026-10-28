@@ -52,6 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.removeItem('auth_token');
       document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
       document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
+      window.location.replace('/login');
     }
     set({ user: null, token: null, isAuthenticated: false });
   },

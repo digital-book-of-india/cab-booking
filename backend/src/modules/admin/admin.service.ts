@@ -25,6 +25,7 @@ import type { LedgerService } from '../ledger/ledger.service';
 import { recordEvent } from '../bookings/transitions';
 import type {
   BookingListQuery,
+  RideListQuery,
   BookingRestrictionInput,
   DispatchQueueQuery,
   ExpiringDocumentsQuery,
@@ -265,6 +266,257 @@ export function createAdminService(deps: {
         meta: pageMeta(page, limit, total),
       };
     },
+    async listRides(query: RideListQuery) {
+      const { page, limit, status, paymentStatus, customerId, driverId, search, q, from, to } = query;
+      const filter: Record<string, unknown> = {};
+      if (status && status !== 'ALL') filter['status'] = status;
+      if (paymentStatus) filter['paymentStatus'] = paymentStatus;
+      if (customerId) filter['customerId'] = customerId;
+      if (driverId) filter['assignedDriverId'] = driverId;
+      const searchTerm = search || q;
+      if (searchTerm) {
+        filter['$or'] = [
+          { publicId: new RegExp(`^${escapeRegex(searchTerm)}`, 'i') },
+          { rideId: new RegExp(`^${escapeRegex(searchTerm)}`, 'i') },
+        ];
+      }
+      if (from || to) {
+        filter['requestedAt'] = { ...(from && { $gte: from }), ...(to && { $lte: to }) };
+      }
+
+      const [total, rows] = await Promise.all([
+        Booking.countDocuments(filter),
+        Booking.find(filter)
+          .sort({ requestedAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean(),
+      ]);
+
+      const customerIds = [...new Set(rows.map((b) => b.customerId))];
+      const driverProfileIds = [...new Set(rows.map((b) => b.assignedDriverId).filter(Boolean))];
+      const categoryIds = [...new Set(rows.map((b) => b.categoryId).filter(Boolean))];
+      const bookingIds = rows.map((b) => b._id);
+
+      const [customers, driverProfiles, categories, rides] = await Promise.all([
+        User.find({ _id: { $in: customerIds } }).select('name phone').lean(),
+        DriverProfile.find({ _id: { $in: driverProfileIds } }).select('userId').lean(),
+        CabCategory.find({ _id: { $in: categoryIds } }).select('name').lean(),
+        Ride.find({ bookingId: { $in: bookingIds } }).lean(),
+      ]);
+
+      const driverUserIds = driverProfiles.map((dp) => dp.userId);
+      const vehicleIds = rides.map((r) => r.vehicleId).filter(Boolean);
+
+      const [driverUsers, vehicles] = await Promise.all([
+        User.find({ _id: { $in: driverUserIds } }).select('name phone').lean(),
+        Vehicle.find({ _id: { $in: vehicleIds } }).select('registrationNumber make model').lean(),
+      ]);
+
+      const customerMap = new Map(customers.map((c) => [c._id.toString(), c]));
+      const driverUserMap = new Map(driverUsers.map((u) => [u._id.toString(), u]));
+      const profileToUserMap = new Map(
+        driverProfiles.map((dp) => [dp._id.toString(), driverUserMap.get(dp.userId.toString())]),
+      );
+      const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
+      const rideByBookingId = new Map(rides.map((r) => [r.bookingId.toString(), r]));
+      const vehicleMap = new Map(vehicles.map((v) => [v._id.toString(), v]));
+
+      const maskPhone = (phone?: string | null) => {
+        if (!phone) return '••••••';
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length <= 4) return '••••••';
+        return `+91 ••••• •${digits.slice(-4)}`;
+      };
+
+      const items = rows.map((b) => {
+        const c = customerMap.get(b.customerId.toString());
+        const dProfileId = b.assignedDriverId?.toString();
+        const dUser = dProfileId ? profileToUserMap.get(dProfileId) : undefined;
+        const r = rideByBookingId.get(b._id.toString());
+        const v = r ? vehicleMap.get(r.vehicleId.toString()) : undefined;
+        const cat = categoryMap.get(b.categoryId.toString());
+        const fareObj = (b.finalFare || b.fareSnapshot || {}) as Record<string, number | undefined>;
+
+        const pickupLat = b.pickup?.location?.coordinates?.[1] ?? 28.6139;
+        const pickupLng = b.pickup?.location?.coordinates?.[0] ?? 77.2090;
+        const dropLat = b.drop?.location?.coordinates?.[1] ?? 28.6139;
+        const dropLng = b.drop?.location?.coordinates?.[0] ?? 77.2090;
+
+        return {
+          id: b.rideId || b.publicId,
+          bookingId: b.publicId,
+          customerId: b.customerId.toString(),
+          customerName: c?.name || 'Customer',
+          customerPhoneMasked: maskPhone(c?.phone),
+          driverId: dProfileId,
+          driverName: dUser?.name,
+          driverPhoneMasked: maskPhone(dUser?.phone),
+          vehicleRegistration: v?.registrationNumber,
+          vehicleModel: [v?.make, v?.model].filter(Boolean).join(' ') || undefined,
+          categoryId: b.categoryId.toString(),
+          categoryName: cat?.name || 'Cab',
+          pickup: {
+            lat: pickupLat,
+            lng: pickupLng,
+            address: b.pickup?.label || 'Pickup Point',
+          },
+          drop: {
+            lat: dropLat,
+            lng: dropLng,
+            address: b.drop?.label || 'Drop Point',
+          },
+          status: b.status,
+          paymentStatus: b.paymentStatus || 'NOT_DUE',
+          paymentMethod: b.paymentMethod,
+          rideType: b.rideType || 'INSTANT',
+          fare: {
+            baseFarePaise: fareObj.baseFarePaise ?? fareObj.basePaise ?? 0,
+            distanceFarePaise: fareObj.distanceFarePaise ?? fareObj.distancePaise ?? 0,
+            timeFarePaise: fareObj.timeFarePaise ?? fareObj.durationFarePaise ?? fareObj.timePaise ?? 0,
+            surgeFarePaise: fareObj.surgeFarePaise ?? fareObj.surgePaise ?? 0,
+            discountPaise: fareObj.discountPaise ?? 0,
+            taxPaise: fareObj.taxPaise ?? 0,
+            finalTotalPaise:
+              b.finalFarePaise ?? fareObj.finalTotalPaise ?? fareObj.totalPaise ?? b.estimatedFarePaise ?? 0,
+          },
+          routePolyline: [
+            [pickupLat, pickupLng],
+            [dropLat, dropLng],
+          ],
+          cancellationActor: b.cancellation?.actor,
+          cancellationReason: b.cancellation?.reasonCode || b.cancellation?.note,
+          requestedAt: b.requestedAt ? b.requestedAt.toISOString() : new Date().toISOString(),
+          acceptedAt: r?.assignedAt ? r.assignedAt.toISOString() : undefined,
+          arrivedAt: r?.arrivedAt ? r.arrivedAt.toISOString() : undefined,
+          startedAt: r?.startedAt ? r.startedAt.toISOString() : undefined,
+          completedAt: b.completedAt
+            ? b.completedAt.toISOString()
+            : r?.completedAt
+            ? r.completedAt.toISOString()
+            : undefined,
+          cancelledAt: b.cancellation?.at
+            ? b.cancellation.at.toISOString()
+            : r?.cancelledAt
+            ? r.cancelledAt.toISOString()
+            : undefined,
+        };
+      });
+
+      return {
+        items,
+        meta: pageMeta(page, limit, total),
+      };
+    },
+
+    async rideDetail(actor: Actor, ridePublicId: string) {
+      const booking = await Booking.findOne({
+        $or: [{ publicId: ridePublicId }, { rideId: ridePublicId }],
+      }).lean();
+      if (!booking) throw new AppError('NOT_FOUND');
+
+      const [customer, ride, cat] = await Promise.all([
+        User.findById(booking.customerId).select('name phone').lean(),
+        Ride.findOne({ bookingId: booking._id }).lean(),
+        CabCategory.findById(booking.categoryId).select('name').lean(),
+      ]);
+
+      let driverUser;
+      let vehicle;
+      if (ride) {
+        const [profile, veh] = await Promise.all([
+          DriverProfile.findById(ride.driverId).select('userId').lean(),
+          Vehicle.findById(ride.vehicleId).lean(),
+        ]);
+        if (profile) {
+          driverUser = await User.findById(profile.userId).select('name phone').lean();
+        }
+        vehicle = veh;
+      }
+
+      await audit.record(actor, {
+        action: 'RIDE_VIEWED',
+        targetType: 'Ride',
+        targetId: ridePublicId,
+      });
+
+      const maskPhone = (phone?: string | null) => {
+        if (!phone) return '••••••';
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length <= 4) return '••••••';
+        return `+91 ••••• •${digits.slice(-4)}`;
+      };
+
+      const fareObj = (booking.finalFare || booking.fareSnapshot || {}) as Record<string, number | undefined>;
+      const pickupLat = booking.pickup?.location?.coordinates?.[1] ?? 28.6139;
+      const pickupLng = booking.pickup?.location?.coordinates?.[0] ?? 77.2090;
+      const dropLat = booking.drop?.location?.coordinates?.[1] ?? 28.6139;
+      const dropLng = booking.drop?.location?.coordinates?.[0] ?? 77.2090;
+
+      return {
+        id: booking.rideId || booking.publicId,
+        bookingId: booking.publicId,
+        customerId: booking.customerId.toString(),
+        customerName: customer?.name || 'Customer',
+        customerPhoneMasked: maskPhone(customer?.phone),
+        driverId: ride?.driverId?.toString(),
+        driverName: driverUser?.name,
+        driverPhoneMasked: maskPhone(driverUser?.phone),
+        vehicleRegistration: vehicle?.registrationNumber,
+        vehicleModel: [vehicle?.make, vehicle?.model].filter(Boolean).join(' ') || undefined,
+        categoryId: booking.categoryId.toString(),
+        categoryName: cat?.name || 'Cab',
+        pickup: {
+          lat: pickupLat,
+          lng: pickupLng,
+          address: booking.pickup?.label || 'Pickup Point',
+        },
+        drop: {
+          lat: dropLat,
+          lng: dropLng,
+          address: booking.drop?.label || 'Drop Point',
+        },
+        status: booking.status,
+        paymentStatus: booking.paymentStatus || 'NOT_DUE',
+        paymentMethod: booking.paymentMethod,
+        rideType: booking.rideType || 'INSTANT',
+        fare: {
+          baseFarePaise: fareObj.baseFarePaise ?? fareObj.basePaise ?? 0,
+          distanceFarePaise: fareObj.distanceFarePaise ?? fareObj.distancePaise ?? 0,
+          timeFarePaise: fareObj.timeFarePaise ?? fareObj.durationFarePaise ?? fareObj.timePaise ?? 0,
+          surgeFarePaise: fareObj.surgeFarePaise ?? fareObj.surgePaise ?? 0,
+          discountPaise: fareObj.discountPaise ?? 0,
+          taxPaise: fareObj.taxPaise ?? 0,
+          finalTotalPaise:
+            booking.finalFarePaise ??
+            fareObj.finalTotalPaise ??
+            fareObj.totalPaise ??
+            booking.estimatedFarePaise ??
+            0,
+        },
+        routePolyline: [
+          [pickupLat, pickupLng],
+          [dropLat, dropLng],
+        ],
+        cancellationActor: booking.cancellation?.actor,
+        cancellationReason: booking.cancellation?.reasonCode || booking.cancellation?.note,
+        requestedAt: booking.requestedAt ? booking.requestedAt.toISOString() : new Date().toISOString(),
+        acceptedAt: ride?.assignedAt ? ride.assignedAt.toISOString() : undefined,
+        arrivedAt: ride?.arrivedAt ? ride.arrivedAt.toISOString() : undefined,
+        startedAt: ride?.startedAt ? ride.startedAt.toISOString() : undefined,
+        completedAt: booking.completedAt
+          ? booking.completedAt.toISOString()
+          : ride?.completedAt
+          ? ride.completedAt.toISOString()
+          : undefined,
+        cancelledAt: booking.cancellation?.at
+          ? booking.cancellation.at.toISOString()
+          : ride?.cancelledAt
+          ? ride.cancelledAt.toISOString()
+          : undefined,
+      };
+    },
+
 
     /** Everything ops needs to answer "what happened to this booking?". */
     async bookingDetail(actor: Actor, bookingPublicId: string) {

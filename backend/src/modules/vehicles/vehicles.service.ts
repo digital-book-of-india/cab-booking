@@ -3,6 +3,8 @@ import { AppError } from '../../common/errors';
 import { escapeRegex } from '../../common/zod';
 import type { AuditService } from '../audit/audit.service';
 import { CabCategory } from '../categories/cabCategory.model';
+import { DriverProfile } from '../drivers/driverProfile.model';
+import { User } from '../users/user.model';
 import { requireDriverProfile } from '../drivers/drivers.service';
 import { Vehicle } from './vehicle.model';
 import type { CreateVehicleInput, UpdateVehicleInput, VerificationInput } from './vehicles.schemas';
@@ -64,6 +66,53 @@ export function createVehiclesService(deps: { audit: AuditService }) {
       const rows = await Vehicle.find({ driverId: profile._id }).sort({ createdAt: -1 }).lean();
       return rows.map(view);
     },
+    async listAdmin(query: { status?: string }) {
+      const filter: Record<string, unknown> = {};
+      if (query.status) {
+        filter['verificationStatus'] = query.status;
+      }
+      const vehicles = await Vehicle.find(filter).sort({ createdAt: -1 }).lean();
+      const driverProfileIds = vehicles.map((v) => v.driverId);
+      const categoryIds = vehicles.map((v) => v.categoryId);
+
+      const [driverProfiles, categories] = await Promise.all([
+        DriverProfile.find({ _id: { $in: driverProfileIds } }).select('userId').lean(),
+        CabCategory.find({ _id: { $in: categoryIds } }).select('name').lean(),
+      ]);
+
+      const userIds = driverProfiles.map((dp) => dp.userId);
+      const users = await User.find({ _id: { $in: userIds } }).select('name phone').lean();
+
+      const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+      const profileToUserMap = new Map(
+        driverProfiles.map((dp) => [dp._id.toString(), userMap.get(dp.userId.toString())]),
+      );
+      const categoryMap = new Map(categories.map((c) => [c._id.toString(), c]));
+
+      return vehicles.map((v) => {
+        const user = profileToUserMap.get(v.driverId.toString());
+        const cat = categoryMap.get(v.categoryId.toString());
+        const makeModel = [v.make, v.model].filter(Boolean).join(' ') || 'Vehicle';
+        return {
+          id: v._id.toString(),
+          driverId: v.driverId.toString(),
+          driverName: user?.name || 'Driver Partner',
+          driverPhone: user?.phone || '',
+          categoryId: v.categoryId.toString(),
+          categoryName: cat?.name || 'Cab',
+          registrationNumber: v.registrationNumber,
+          makeModel,
+          make: v.make ?? null,
+          model: v.model ?? null,
+          color: v.color ?? null,
+          seats: v.seats,
+          verificationStatus: v.verificationStatus,
+          rejectionReason: v.rejectionReason ?? null,
+          createdAt: v.createdAt ? v.createdAt.toISOString() : new Date().toISOString(),
+        };
+      });
+    },
+
 
     async updateOwn(userId: string, vehicleId: string, input: UpdateVehicleInput) {
       const profile = await requireDriverProfile(userId);

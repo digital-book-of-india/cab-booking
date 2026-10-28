@@ -680,6 +680,30 @@ export const routes: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/admin/rides',
+    tag: 'Admin',
+    summary: 'Search rides lifecycle list by status and search query',
+    auth: ['OPS', 'SUPPORT', 'SUPER_ADMIN'],
+    query: { status: '', search: '', page: '1', limit: '50' },
+  },
+  {
+    method: 'get',
+    path: '/admin/rides/{rideId}',
+    tag: 'Admin',
+    summary: 'Full ride record and fare breakdown for admin inspection',
+    auth: ['OPS', 'SUPPORT', 'SUPER_ADMIN'],
+  },
+  {
+    method: 'get',
+    path: '/admin/vehicles',
+    tag: 'Vehicles',
+    summary: 'List vehicles across the platform for admin verification review',
+    auth: ['OPS', 'SUPPORT', 'SUPER_ADMIN'],
+    query: { status: '', page: '1', limit: '50' },
+  },
+
+  {
+    method: 'get',
     path: '/admin/rides/{rideId}/trail',
     tag: 'Admin',
     summary:

@@ -26,12 +26,12 @@ export default function RideExplorerPage() {
     queryKey: ['admin', 'rides', selectedStatus, activeSearch],
     queryFn: async () => {
       const statusParam = selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : '';
-      const searchParam = activeSearch ? `&q=${encodeURIComponent(activeSearch)}` : '';
-      const res = await apiClient.get(`/admin/bookings?page=1&limit=50${statusParam}${searchParam}`);
-      const raw = Array.isArray(res.data?.data)
-        ? res.data.data
-        : res.data?.data?.items || res.data?.items || [];
-      return raw.map((b: any) => ({
+      const searchParam = activeSearch ? `&search=${encodeURIComponent(activeSearch)}` : '';
+      const res = await apiClient.get(`/admin/rides?page=1&limit=50${statusParam}${searchParam}`);
+      const raw = res.data?.data;
+      const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+      
+      return items.map((b: any) => ({
         id: b.bookingId || b.publicId || b._id || b.id,
         bookingId: b.bookingId || b.publicId || b.id,
         customerId: b.customer?.userId || b.customerId || 'N/A',
