@@ -111,11 +111,34 @@ export function corporateRouter(ctx: ModuleContext, corporate: CorporateService)
     h(async (req) => paged(await corporate.listCompanies(companyListQuerySchema.parse(req.query)))),
   );
   r.get(
+    '/admin/corporate/accounts',
+    ...viewers,
+    h(async (req) => paged(await corporate.listCompanies(companyListQuerySchema.parse(req.query)))),
+  );
+  r.get(
     '/admin/corporate/:companyId',
     ...viewers,
     h(async (req) => ({
       data: await corporate.companyDetail(companyId.parse(req.params['companyId'])),
     })),
+  );
+  r.patch(
+    '/admin/corporate/accounts/:companyId/approval',
+    ...finance,
+    h(async (req) => {
+      const cId = companyId.parse(req.params['companyId']);
+      const body = z
+        .object({
+          status: z.enum(['APPROVED', 'REJECTED', 'ACTIVE', 'SUSPENDED']),
+          reasonCode: z.string().optional(),
+        })
+        .parse(req.body);
+      const mappedStatus =
+        body.status === 'REJECTED' || body.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
+      return {
+        data: await corporate.updateCompany(actorFrom(req), cId, { status: mappedStatus }),
+      };
+    }),
   );
   r.patch(
     '/admin/corporate/:companyId',

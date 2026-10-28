@@ -212,6 +212,7 @@ describe('joining a company account', () => {
       .send({ name: 'X Co', billingEmail: 'a@b.co', adminPhone: '+919812300001' });
     expect(res.status).toBe(403);
     expect((await api().get('/api/v1/admin/corporate').set(ops.auth)).status).toBe(200); // looking is fine
+    expect((await api().get('/api/v1/admin/corporate/accounts').set(ops.auth)).status).toBe(200);
   });
 });
 

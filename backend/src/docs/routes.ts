@@ -1697,6 +1697,14 @@ export const routes: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/admin/corporate/accounts',
+    tag: 'Corporate',
+    summary: 'Company accounts, by name',
+    auth: ['OPS', 'SUPPORT', 'FINANCE', 'SUPER_ADMIN'],
+    query: { status: '', q: '', page: '1', limit: '20' },
+  },
+  {
+    method: 'get',
     path: '/admin/corporate/{companyId}',
     tag: 'Corporate',
     summary:

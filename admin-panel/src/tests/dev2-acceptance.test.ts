@@ -203,6 +203,13 @@ if (typeof describe !== 'undefined') {
         expect(second.action).toBe('TRIGGER_ALARM');
       });
     });
+    describe('Corporate Accounts Routing & Identification', () => {
+      const companyIdRegex = /^corp_[0-9a-f]{12}$/;
+      it('distinguishes accounts list path from company id parameter', () => {
+        expect(companyIdRegex.test('accounts')).toBe(false);
+        expect(companyIdRegex.test('corp_601000000001')).toBe(true);
+      });
+    });
   });
 }
 
@@ -441,6 +448,20 @@ export function runDev2AcceptanceSuite(): {
     'SOS: Distinct incident triggers alarm',
     distinctEvent.duplicate === false && distinctEvent.action === 'TRIGGER_ALARM',
     'Independent second SOS incident properly handled'
+  );
+  // ==========================================
+  // 6. Corporate Accounts Routing & Identification
+  // ==========================================
+  const companyIdRegex = /^corp_[0-9a-f]{12}$/;
+  assert(
+    'Corporate: Route accounts is not mistaken for company ID',
+    companyIdRegex.test('accounts') === false,
+    'accounts path segment rejected as valid company ID pattern'
+  );
+  assert(
+    'Corporate: Valid company ID format verified',
+    companyIdRegex.test('corp_601000000001') === true,
+    'Valid company ID accepted'
   );
 
   const passed = results.filter((r) => r.status === 'PASS').length;

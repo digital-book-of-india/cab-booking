@@ -99,6 +99,7 @@ async function runAll() {
     { name: 'Driver Settlements Batch', path: '/finance/settlements' },
     { name: 'Cash Collection Reconcile', path: '/finance/cash' },
     { name: 'Customer Outstanding Debt', path: '/finance/outstanding' },
+    { name: 'Corporate Accounts Registry', path: '/corporate/accounts' },
     { name: 'Corporate Invoices Desk', path: '/corporate/invoices' },
     { name: 'Emergency SOS Command Desk', path: '/safety/sos' },
     { name: 'Customer Support Tickets', path: '/support/tickets' },

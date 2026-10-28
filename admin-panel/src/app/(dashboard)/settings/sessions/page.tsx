@@ -1,15 +1,15 @@
 // 'use client';
-
+// 
 // import { useEffect, useState } from 'react';
 // import { apiClient } from '@/lib/api-client';
 // import { AdminSession } from '@/types';
 // import { formatToIST } from '@/lib/currency';
 // import { Laptop, Trash2 } from 'lucide-react';
-
+// 
 // export default function SessionsPage() {
 //   const [sessions, setSessions] = useState<AdminSession[]>([]);
 //   const [loading, setLoading] = useState(true);
-
+// 
 //   const fetchSessions = async () => {
 //     try {
 //       const res = await apiClient.get('/auth/sessions');
@@ -18,24 +18,24 @@
 //       setLoading(false);
 //     }
 //   };
-
+// 
 //   useEffect(() => {
 //     fetchSessions();
 //   }, []);
-
+// 
 //   const handleRevoke = async (sessionId: string) => {
 //     if (!confirm('Revoke this administrative session immediately?')) return;
 //     await apiClient.delete(`/auth/sessions/${sessionId}`);
 //     fetchSessions();
 //   };
-
+// 
 //   return (
 //     <div className="space-y-6">
 //       <div>
 //         <h1 className="text-xl font-bold text-slate-900 tracking-tight">Active Admin Sessions</h1>
 //         <p className="text-xs text-slate-500 mt-1">Review devices and IP addresses currently logged in with administrative access.</p>
 //       </div>
-
+// 
 //       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
 //         <table className="w-full text-left text-sm text-slate-700">
 //           <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
@@ -119,7 +119,26 @@ export default function SessionsPage() {
         throw new Error('Invalid sessions response from server.');
       }
 
-      setSessions(data);
+      const normalized: AdminSession[] = data.map((item: unknown) => {
+        const raw = item as Record<string, unknown>;
+        return {
+          sessionId: String(raw.sessionId || raw.id || raw._id || ''),
+          ipAddress: String(raw.ipAddress || '—'),
+          userAgent: String(
+            raw.userAgent ||
+              ((raw.device as Record<string, unknown> | undefined)?.platform
+                ? `${(raw.device as Record<string, unknown>).platform} ${(raw.device as Record<string, unknown>).appVersion || ''}`.trim()
+                : 'Unknown device')
+          ),
+          isCurrent: Boolean(raw.isCurrent ?? raw.current),
+          createdAt: String(raw.createdAt || new Date().toISOString()),
+          lastActiveAt: String(
+            raw.lastActiveAt || raw.lastUsedAt || raw.createdAt || new Date().toISOString()
+          ),
+        };
+      });
+
+      setSessions(normalized);
     } catch (err) {
       console.error('Failed to fetch sessions:', err);
       setError('Failed to load active sessions. Please try again.');
@@ -200,72 +219,88 @@ export default function SessionsPage() {
 
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr
->
+              <tr key="sessions-loading-row">
                 <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                   Loading active sessions...
                 </td>
               </tr>
+            ) : error && sessions.length === 0 ? (
+              <tr key="sessions-error-row">
+                <td colSpan={5} className="px-6 py-8 text-center text-rose-500">
+                  Failed to load active sessions.
+                </td>
+              </tr>
             ) : sessions.length === 0 ? (
-              <tr>
+              <tr key="sessions-empty-row">
                 <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                   No active sessions found.
                 </td>
               </tr>
             ) : (
-              sessions.map((s) => (
-                <tr
-                  key={s.sessionId}
-                  className="transition hover:bg-slate-50/80"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
-                        <Laptop className="h-4 w-4" />
+              sessions.map((s) => {
+                const sessionKey =
+                  s.sessionId ||
+                  (s as { id?: string; _id?: string }).id ||
+                  (s as { id?: string; _id?: string })._id ||
+                  `session-${s.ipAddress || ''}-${s.createdAt}`;
+                const isCurrent = Boolean(
+                  s.isCurrent ?? (s as { current?: boolean }).current
+                );
+
+                return (
+                  <tr
+                    key={sessionKey}
+                    className="transition hover:bg-slate-50/80"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+                          <Laptop className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="break-words text-xs font-semibold text-slate-900">
+                            {s.userAgent || 'Unknown device'}
+                          </p>
+
+                          {isCurrent && (
+                            <span className="inline-flex items-center text-[10px] font-bold text-emerald-600">
+                              Current Session
+                            </span>
+                          )}
+                        </div>
                       </div>
+                    </td>
 
-                      <div className="min-w-0">
-                        <p className="break-words text-xs font-semibold text-slate-900">
-                          {s.userAgent || 'Unknown device'}
-                        </p>
+                    <td className="px-6 py-4 font-mono text-xs text-slate-600">
+                      {s.ipAddress || 'Unknown'}
+                    </td>
 
-                        {s.isCurrent && (
-                          <span className="inline-flex items-center text-[10px] font-bold text-emerald-600">
-                            Current Session
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
+                    <td className="px-6 py-4 text-xs text-slate-500">
+                      {formatToIST(s.createdAt)}
+                    </td>
 
-                  <td className="px-6 py-4 font-mono text-xs text-slate-600">
-                    {s.ipAddress || 'Unknown'}
-                  </td>
+                    <td className="px-6 py-4 text-xs text-slate-500">
+                      {formatToIST(s.lastActiveAt)}
+                    </td>
 
-                  <td className="px-6 py-4 text-xs text-slate-500">
-                    {formatToIST(s.createdAt)}
-                  </td>
-
-                  <td className="px-6 py-4 text-xs text-slate-500">
-                    {formatToIST(s.lastActiveAt)}
-                  </td>
-
-                  <td className="px-6 py-4 text-right">
-                    {!s.isCurrent && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRevoke(s.sessionId)}
-                        disabled={revokingId !== null}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                        title="Revoke session"
-                        aria-label={`Revoke session ${s.sessionId}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))
+                    <td className="px-6 py-4 text-right">
+                      {!isCurrent && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRevoke(sessionKey)}
+                          disabled={revokingId !== null}
+                          className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Revoke session"
+                          aria-label={`Revoke session ${sessionKey}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
