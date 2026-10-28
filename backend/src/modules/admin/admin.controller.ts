@@ -70,7 +70,9 @@ export function createAdminController(service: AdminService) {
   };
 
   const dispatchQueue: RequestHandler = async (req, res) => {
+    const actor = actorFrom(req);
     const { items, meta } = await service.getDispatchQueue(
+      actor,
       dispatchQueueQuerySchema.parse(req.query),
     );
     ok(res, items, 200, meta);

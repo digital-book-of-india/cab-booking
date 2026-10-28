@@ -82,6 +82,10 @@ export const liveDriversQuerySchema = paginationSchema
 export const dispatchQueueQuerySchema = paginationSchema.extend({
   zoneId: objectId.optional(),
   categoryId: objectId.optional(),
+  includePhone: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 export const manualAssignDriverSchema = z

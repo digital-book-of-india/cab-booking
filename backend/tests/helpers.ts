@@ -165,7 +165,7 @@ export async function startTestEnv(
   // Starting the in-memory server can fail on a busy CI machine (port or binary start-up); try once more.
   const mongod = realUri
     ? null
-    : await MongoMemoryServer.create().catch(() => MongoMemoryServer.create());
+    : await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } }).catch(() => MongoMemoryServer.create({ instance: { launchTimeout: 60000 } }));
   // Unique per environment: even if two files ever shared a server they could not touch each other's data.
   const dbName = `test_${randomBytes(6).toString('hex')}`;
   await mongoose.connect(realUri ?? mongod!.getUri(), { dbName });

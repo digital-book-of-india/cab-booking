@@ -127,7 +127,8 @@ export const productRoutes: RouteDoc[] = [
     method: 'get',
     path: '/admin/dispatch/queue',
     tag: 'Dispatch',
-    summary: 'List bookings awaiting driver assignment with server-calculated waiting duration',
+    summary:
+      'List bookings awaiting driver assignment with waiting duration (customerPhone redacted by default; includePhone requires SUPER_ADMIN and is audited)',
     auth: OPS_SUPPORT,
     query: { page: '1', limit: '20' },
   },

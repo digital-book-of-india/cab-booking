@@ -244,7 +244,7 @@ When a rider's booking ability has been restricted by staff for policy violation
 
 ### Admin Operations Endpoints (Admin Panel)
 - `GET /api/v1/admin/drivers/live`: Live fleet map feed. Supports query params: `minLat`, `maxLat`, `minLng`, `maxLng` (span <= 5 degrees) or `zoneId`. Returns driver profile, GeoJSON location, heading, active ride ID, and verified vehicle details. Audited.
-- `GET /api/v1/admin/dispatch/queue`: Real-time queue of unassigned bookings (`REQUESTED` and `DISPATCHING`) ordered oldest first with server-calculated `waitingSeconds`. Supports filtering by `zoneId` and `categoryId`.
+- `GET /api/v1/admin/dispatch/queue`: Real-time queue of unassigned bookings (`REQUESTED` and `DISPATCHING`) ordered oldest first with server-calculated `waitingSeconds`. Supports filtering by `zoneId` and `categoryId`. For customer privacy, `customerPhone` is redacted (`null`) by default; accessing unmasked phone numbers requires `SUPER_ADMIN` role and `includePhone=true` query parameter (audited under `DISPATCH_QUEUE_CUSTOMER_PII_VIEWED`).
 - `POST /api/v1/admin/bookings/{bookingId}/assign-driver`: Manually assign or reassign an eligible driver to a booking with atomic locking. Body:
   ```json
   {

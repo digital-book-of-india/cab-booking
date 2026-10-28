@@ -11,7 +11,7 @@ const schema = z.object({
     .transform((v) =>
       v
         .split(',')
-        .map((s) => s.trim())
+        .map((s) => s.trim().replace(/\/+$/, ''))
         .filter(Boolean),
     ),
   MONGODB_URI: z.string().min(1),
@@ -163,6 +163,15 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') {
     if (env.CORS_ORIGINS.includes('*')) {
       throw new EnvValidationError(['CORS_ORIGINS: a wildcard is not allowed outside development']);
+    }
+  }
+  for (const origin of env.CORS_ORIGINS) {
+    if (origin !== '*') {
+      try {
+        new URL(origin);
+      } catch {
+        throw new EnvValidationError([`CORS_ORIGINS: invalid origin URL (${origin})`]);
+      }
     }
   }
   if (env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) {

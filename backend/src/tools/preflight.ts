@@ -44,6 +44,7 @@ export function preflight(env: Env, raw: NodeJS.ProcessEnv = process.env): Findi
     );
   for (const o of env.CORS_ORIGINS) {
     if (LOCAL.test(o)) block('CORS_ORIGINS', `allows a local address (${o})`);
+    else if (o.startsWith('http://')) block('CORS_ORIGINS', `is not HTTPS (${o})`);
   }
 
   // Secrets.

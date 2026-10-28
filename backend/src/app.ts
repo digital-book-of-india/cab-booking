@@ -167,7 +167,17 @@ export function createApp(deps: AppDeps): Express {
   );
   app.use(helmet());
   // Narrow CORS: only explicitly listed origins; no wildcard.
-  app.use(cors({ origin: deps.corsOrigins, credentials: true }));
+  app.use(
+    cors({
+      origin: deps.corsOrigins,
+      credentials: false,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id'],
+      exposedHeaders: ['X-Request-Id'],
+      maxAge: 86400,
+      optionsSuccessStatus: 204,
+    }),
+  );
   app.use(globalRateLimiter(deps.rateLimitMax));
   // Razorpay's webhook is signed over the EXACT bytes it sends, so it is read raw, before the JSON parser.
   let paymentsForWebhook: PaymentsService | null = null;

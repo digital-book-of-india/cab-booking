@@ -604,8 +604,11 @@ export function createAdminService(deps: {
       };
     },
 
-    async getDispatchQueue(query: DispatchQueueQuery) {
-      const { page, limit, zoneId, categoryId } = query;
+    async getDispatchQueue(actor: Actor, query: DispatchQueueQuery) {
+      const { page, limit, zoneId, categoryId, includePhone } = query;
+      if (includePhone && actor.role !== 'SUPER_ADMIN') {
+        throw new AppError('FORBIDDEN', 'Only SUPER_ADMIN may access customer phone numbers.');
+      }
       const filter: Record<string, unknown> = {
         status: { $in: ['REQUESTED', 'DISPATCHING'] },
       };
@@ -624,11 +627,25 @@ export function createAdminService(deps: {
       const customerIds = rows.map((r) => r.customerId);
       const categoryIds = rows.map((r) => r.categoryId);
       const [customers, categories] = await Promise.all([
-        User.find({ _id: { $in: customerIds } }).select('name phone').lean(),
+        User.find({ _id: { $in: customerIds } })
+          .select(includePhone ? 'name phone' : 'name')
+          .lean(),
         CabCategory.find({ _id: { $in: categoryIds } }).select('name code').lean(),
       ]);
       const customerById = new Map(customers.map((c) => [c._id.toString(), c]));
       const categoryById = new Map(categories.map((c) => [c._id.toString(), c]));
+
+      if (includePhone && rows.length > 0) {
+        await audit.record(actor, {
+          action: 'DISPATCH_QUEUE_CUSTOMER_PII_VIEWED',
+          targetType: 'DispatchQueue',
+          targetId: 'queue',
+          metadata: {
+            count: rows.length,
+            bookingIds: rows.map((b) => b.publicId),
+          },
+        });
+      }
 
       return {
         items: rows.map((b) => {
@@ -642,7 +659,7 @@ export function createAdminService(deps: {
             bookingId: b.publicId,
             customerId: b.customerId.toString(),
             customerName: c?.name ?? null,
-            customerPhone: c?.phone ?? null,
+            customerPhone: includePhone ? (c?.phone ?? null) : null,
             categoryId: b.categoryId.toString(),
             categoryName: cat?.name ?? 'Standard Cab',
             zoneId: b.zoneId.toString(),
