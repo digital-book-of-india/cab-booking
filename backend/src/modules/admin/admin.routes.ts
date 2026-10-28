@@ -22,6 +22,8 @@ export function adminRouter(ctx: ModuleContext, service: AdminService): Router {
   );
   r.get('/admin/bookings', ...view, c.listBookings);
   r.get('/admin/bookings/:bookingId', ...view, c.bookingDetail);
+  r.get('/admin/rides', ...view, c.listRides);
+  r.get('/admin/rides/:rideId', ...view, c.rideDetail);
   r.get('/admin/rides/:rideId/trail', ...view, c.rideTrail);
   r.post(
     '/admin/bookings/:bookingId/fee/waive',

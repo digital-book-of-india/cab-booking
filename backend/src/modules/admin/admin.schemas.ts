@@ -31,6 +31,19 @@ export const bookingListQuerySchema = paginationSchema.extend({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });
+export const rideListQuerySchema = paginationSchema.extend({
+  status: z.string().trim().optional(),
+  paymentStatus: z.string().trim().optional(),
+  customerId: objectId.optional(),
+  driverId: objectId.optional(),
+  search: z.string().trim().optional(),
+  q: z.string().trim().optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+});
+
+export type RideListQuery = z.infer<typeof rideListQuerySchema>;
+
 
 export const waiveFeeSchema = z.object({ reason: z.string().trim().min(3).max(300) }).strict();
 

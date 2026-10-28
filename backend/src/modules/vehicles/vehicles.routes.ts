@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { DRIVER_REVIEW_ROLES } from '../../common/enums';
+import { DRIVER_REVIEW_ROLES, OPS_VIEW_ROLES } from '../../common/enums';
 import { requireRole } from '../../middleware/auth';
 import type { ModuleContext } from '../../context';
 import { createVehiclesController } from './vehicles.controller';
@@ -13,6 +13,12 @@ export function vehiclesRouter(ctx: ModuleContext): Router {
   r.post('/drivers/me/vehicles', ...driverOnly, c.create);
   r.get('/drivers/me/vehicles', ...driverOnly, c.listOwn);
   r.patch('/drivers/me/vehicles/:vehicleId', ...driverOnly, c.updateOwn);
+  r.get(
+    '/admin/vehicles',
+    ctx.authenticate,
+    requireRole(...OPS_VIEW_ROLES),
+    c.listAdmin,
+  );
   r.patch(
     '/admin/vehicles/:vehicleId/verification',
     ctx.authenticate,

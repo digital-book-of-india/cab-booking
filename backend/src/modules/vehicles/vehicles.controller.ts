@@ -14,6 +14,11 @@ export function createVehiclesController(service: VehiclesService) {
   const listOwn: RequestHandler = async (req, res) => {
     ok(res, await service.listOwn(actorFrom(req).userId));
   };
+  const listAdmin: RequestHandler = async (req, res) => {
+    const status = typeof req.query['status'] === 'string' ? req.query['status'] : undefined;
+    ok(res, await service.listAdmin({ status }));
+  };
+
 
   const updateOwn: RequestHandler = async (req, res) => {
     const vehicleId = objectId.parse(req.params['vehicleId']);
@@ -27,5 +32,5 @@ export function createVehiclesController(service: VehiclesService) {
     ok(res, await service.verify(actorFrom(req), vehicleId, input));
   };
 
-  return { create, listOwn, updateOwn, verify };
+  return { listAdmin, create, listOwn, updateOwn, verify };
 }

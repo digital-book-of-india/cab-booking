@@ -18,13 +18,16 @@ export default function VehiclesPage() {
     queryKey: ['admin', 'vehicles'],
     queryFn: async () => {
       const res = await apiClient.get('/admin/vehicles');
-      return res.data.data;
+      const raw = res.data?.data;
+      return Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
     },
   });
 
   const handleVerify = async (vehicleId: string, status: 'VERIFIED' | 'REJECTED') => {
     try {
       await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {
+        status,
+        reason: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
         verificationStatus: status,
         reasonCode: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
       });

@@ -4,6 +4,7 @@ import { ok } from '../../common/response';
 import { objectId } from '../../common/zod';
 import {
   bookingListQuerySchema,
+  rideListQuerySchema,
   bookingRestrictionSchema,
   dispatchQueueQuerySchema,
   expiringDocumentsQuerySchema,
@@ -33,6 +34,15 @@ export function createAdminController(service: AdminService) {
   const listBookings: RequestHandler = async (req, res) => {
     const { items, meta } = await service.listBookings(bookingListQuerySchema.parse(req.query));
     ok(res, items, 200, meta);
+  };
+
+  const listRides: RequestHandler = async (req, res) => {
+    const { items, meta } = await service.listRides(rideListQuerySchema.parse(req.query));
+    ok(res, items, 200, meta);
+  };
+
+  const rideDetail: RequestHandler = async (req, res) => {
+    ok(res, await service.rideDetail(actorFrom(req), String(req.params['rideId'])));
   };
 
   const bookingDetail: RequestHandler = async (req, res) => {
@@ -88,7 +98,7 @@ export function createAdminController(service: AdminService) {
     ok(res, await service.dashboard());
   };
 
-  return {
+  return { listRides, rideDetail,
     listUsers,
     userDetail,
     setUserStatus,

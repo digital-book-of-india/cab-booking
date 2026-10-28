@@ -28,7 +28,8 @@ export default function RideExplorerPage() {
       const statusParam = selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : '';
       const searchParam = activeSearch ? `&search=${encodeURIComponent(activeSearch)}` : '';
       const res = await apiClient.get(`/admin/rides?page=1&limit=50${statusParam}${searchParam}`);
-      return res.data.data;
+      const raw = res.data?.data;
+      return Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
     },
   });
 
