@@ -5,21 +5,36 @@ import React, {
   useEffect,
   useMemo,
   useState,
-} from 'react';
-import { AuthService } from '../services/auth.service';
-import { CustomerService } from '../services/customer.service';
-import { TokenStorage } from '../services/tokenStorage';
-import type { AuthUser, DeviceInfo } from '../types/auth.types';
+} from "react";
+import { AuthService } from "../services/auth.service";
+import { CustomerService } from "../services/customer.service";
+import { TokenStorage } from "../services/tokenStorage";
+import type { AuthUser, DeviceInfo } from "../types/auth.types";
 
 export type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  activeChallenge: { phone: string; challengeId: string; resendAfterSeconds: number } | null;
-  requestOtp: (phone: string) => Promise<{ challengeId: string; expiresInSeconds: number; resendAfterSeconds: number }>;
+  activeChallenge: {
+    phone: string;
+    challengeId: string;
+    resendAfterSeconds: number;
+  } | null;
+  requestOtp: (
+    phone: string
+  ) => Promise<{
+    challengeId: string;
+    expiresInSeconds: number;
+    resendAfterSeconds: number;
+  }>;
   verifyOtp: (otp: string, device?: DeviceInfo) => Promise<AuthUser>;
   loginDemoUser: (phone?: string) => Promise<AuthUser>;
-  updateProfile: (name: string, email?: string | null) => Promise<void>;
+  // Accepts (name, phone) OR (name, email) OR (name, phone, email)
+  updateProfile: (
+    name: string,
+    phoneOrEmail?: string | null,
+    email?: string | null
+  ) => Promise<void>;
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   clearChallenge: () => void;
@@ -28,17 +43,19 @@ export type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const DEMO_USER: AuthUser = {
-  id: 'demo-user-101',
-  phone: '+919876543210',
-  role: 'CUSTOMER',
-  status: 'ACTIVE',
+  id: "demo-user-101",
+  phone: "+919876543210",
+  role: "CUSTOMER",
+  status: "ACTIVE",
   profileComplete: true,
   isNewUser: false,
-  name: 'Demo Rider',
-  email: 'rider@example.com',
+  name: "Demo Rider",
+  email: "rider@example.com",
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeChallenge, setActiveChallenge] = useState<{
@@ -60,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Demo Mode token restoration
-      if (accessToken === 'demo-access-token') {
+      if (accessToken === "demo-access-token") {
         setUser(DEMO_USER);
         setIsLoading(false);
         return;
@@ -72,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser({
             id: profile.id,
             phone: profile.phone,
-            role: 'CUSTOMER',
+            role: "CUSTOMER",
             status: profile.accountStatus,
             profileComplete: Boolean(profile.name),
             isNewUser: false,
@@ -94,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser({
             id: profile.id,
             phone: profile.phone,
-            role: 'CUSTOMER',
+            role: "CUSTOMER",
             status: profile.accountStatus,
             profileComplete: Boolean(profile.name),
             isNewUser: false,
@@ -122,21 +139,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [restoreSession]);
 
   /** 1-tap instant Demo Login */
-  const loginDemoUser = useCallback(async (phone?: string): Promise<AuthUser> => {
-    const customDemoUser: AuthUser = {
-      ...DEMO_USER,
-      phone: phone || DEMO_USER.phone,
-    };
-    await TokenStorage.setTokens('demo-access-token', 'demo-refresh-token');
-    setUser(customDemoUser);
-    setActiveChallenge(null);
-    return customDemoUser;
-  }, []);
+  const loginDemoUser = useCallback(
+    async (phone?: string): Promise<AuthUser> => {
+      const customDemoUser: AuthUser = {
+        ...DEMO_USER,
+        phone: phone || DEMO_USER.phone,
+      };
+      await TokenStorage.setTokens("demo-access-token", "demo-refresh-token");
+      setUser(customDemoUser);
+      setActiveChallenge(null);
+      return customDemoUser;
+    },
+    []
+  );
 
   /** Request OTP with automatic Demo Fallback on network timeout */
   const requestOtp = useCallback(async (phone: string) => {
     try {
-      const res = await AuthService.requestOtp({ phone, purpose: 'login' });
+      const res = await AuthService.requestOtp({ phone, purpose: "login" });
       setActiveChallenge({
         phone,
         challengeId: res.challengeId,
@@ -145,9 +165,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return res;
     } catch (err) {
       console.warn(
-        '[AuthContext] Backend request timed out or unreachable. Falling back to Demo Challenge for:',
+        "[AuthContext] Backend request timed out or unreachable. Falling back to Demo Challenge for:",
         phone,
-        err,
+        err
       );
       const fallbackRes = {
         challengeId: `demo-challenge-${Date.now()}`,
@@ -167,22 +187,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyOtp = useCallback(
     async (otp: string, device?: DeviceInfo): Promise<AuthUser> => {
       if (!activeChallenge) {
-        throw new Error('No active OTP request found. Please request an OTP first.');
+        throw new Error(
+          "No active OTP request found. Please request an OTP first."
+        );
       }
 
       // If active challenge is a Demo Challenge or OTP is demo code (123456)
-      if (activeChallenge.challengeId.startsWith('demo-') || otp === '123456') {
+      if (activeChallenge.challengeId.startsWith("demo-") || otp === "123456") {
         const demoAuthUser: AuthUser = {
-          id: 'demo-user-101',
+          id: "demo-user-101",
           phone: activeChallenge.phone,
-          role: 'CUSTOMER',
-          status: 'ACTIVE',
+          role: "CUSTOMER",
+          status: "ACTIVE",
           profileComplete: true,
           isNewUser: false,
-          name: 'Demo Rider',
-          email: 'rider@example.com',
+          name: "Demo Rider",
+          email: "rider@example.com",
         };
-        await TokenStorage.setTokens('demo-access-token', 'demo-refresh-token');
+        await TokenStorage.setTokens("demo-access-token", "demo-refresh-token");
         setUser(demoAuthUser);
         setActiveChallenge(null);
         return demoAuthUser;
@@ -193,7 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           challengeId: activeChallenge.challengeId,
           phone: activeChallenge.phone,
           otp,
-          role: 'CUSTOMER',
+          role: "CUSTOMER",
           device,
         });
 
@@ -220,46 +242,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveChallenge(null);
         return authUser;
       } catch (err) {
-        // If real backend call timed out or failed and user entered 123456, let them in via demo
-        if (otp === '123456' || otp === '000000') {
+        if (otp === "123456" || otp === "000000") {
           return loginDemoUser(activeChallenge.phone);
         }
         throw err;
       }
     },
-    [activeChallenge, loginDemoUser],
+    [activeChallenge, loginDemoUser]
   );
 
-  /** Update user name and email */
+  /**
+   * Update user profile:
+   * Handles:
+   * - updateProfile(name, phone)       -> updates name & phone
+   * - updateProfile(name, email)       -> updates name & email (backwards-compatible)
+   * - updateProfile(name, phone, email)-> updates all three
+   */
   const updateProfile = useCallback(
-    async (name: string, email?: string | null) => {
+    async (
+      name: string,
+      phoneOrEmail?: string | null,
+      optionalEmail?: string | null
+    ) => {
+      let phone: string | undefined;
+      let email: string | null | undefined;
+
+      if (phoneOrEmail) {
+        if (phoneOrEmail.includes("@")) {
+          email = phoneOrEmail;
+        } else {
+          phone = phoneOrEmail;
+        }
+      }
+
+      if (optionalEmail !== undefined) {
+        email = optionalEmail;
+      }
+
       try {
         const updated = await CustomerService.updateProfile({ name, email });
         setUser((prev) =>
           prev
             ? {
                 ...prev,
-                name: updated.name,
-                email: updated.email,
-                profileComplete: Boolean(updated.name),
+                name: updated.name || name,
+                phone: phone || updated.phone || prev.phone,
+                email:
+                  email !== undefined ? email : updated.email ?? prev.email,
+                profileComplete: Boolean(name),
               }
-            : null,
+            : null
         );
       } catch {
-        // Fallback for demo mode
+        // Fallback for offline / demo mode
         setUser((prev) =>
           prev
             ? {
                 ...prev,
                 name,
-                email,
+                phone: phone || prev.phone,
+                email: email !== undefined ? email : prev.email,
                 profileComplete: Boolean(name),
               }
-            : null,
+            : null
         );
       }
     },
-    [],
+    []
   );
 
   /** Refresh profile data */
@@ -271,10 +320,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? {
               ...prev,
               name: profile.name,
+              phone: profile.phone || prev.phone,
               email: profile.email,
               profileComplete: Boolean(profile.name),
             }
-          : null,
+          : null
       );
     } catch {
       // ignore
@@ -323,7 +373,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshProfile,
       logout,
       clearChallenge,
-    ],
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -332,7 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

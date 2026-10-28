@@ -9,7 +9,7 @@ export type TicketItemProps = {
   onPress: (ticket: SupportTicket) => void;
 };
 
-const getStatusBadge = (status: TicketStatus): { label: string; variant: BadgeVariant } => {
+const getStatusBadge = (status?: TicketStatus): { label: string; variant: BadgeVariant } => {
   switch (status) {
     case 'OPEN':
       return { label: 'Open', variant: 'warning' };
@@ -26,16 +26,29 @@ const getStatusBadge = (status: TicketStatus): { label: string; variant: BadgeVa
 
 export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
   const badge = getStatusBadge(ticket.status);
-  const formattedDate = new Date(ticket.createdAt).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-  });
+  let formattedDate = '';
+  try {
+    if (ticket.createdAt) {
+      formattedDate = new Date(ticket.createdAt).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+      });
+    }
+  } catch {
+    formattedDate = '';
+  }
+
   const lastMsg =
     ticket.messages && ticket.messages.length > 0
-      ? ticket.messages[ticket.messages.length - 1].text
+      ? ticket.messages[ticket.messages.length - 1].text ||
+        ticket.messages[ticket.messages.length - 1].body ||
+        ticket.messages[ticket.messages.length - 1].message ||
+        'No messages yet'
       : 'No messages yet';
 
   const id = ticket.ticketId || ticket.id || '';
+  const categoryLabel = (ticket.category || 'SUPPORT').replace(/_/g, ' ');
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -43,7 +56,7 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
       activeOpacity={0.7}
     >
       <View style={styles.header}>
-        <Text style={styles.ticketId}>#{id.slice(-6).toUpperCase()}</Text>
+        <Text style={styles.ticketId}>#{id ? id.slice(-6).toUpperCase() : 'TICKET'}</Text>
         <Badge label={badge.label} variant={badge.variant} />
       </View>
 
@@ -56,7 +69,7 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
       </Text>
 
       <View style={styles.footer}>
-        <Text style={styles.category}>{ticket.category.replace('_', ' ')}</Text>
+        <Text style={styles.category}>{categoryLabel}</Text>
         <Text style={styles.date}>{formattedDate}</Text>
       </View>
     </TouchableOpacity>
