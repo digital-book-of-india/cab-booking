@@ -35,7 +35,49 @@ export default function RideDetailPage({ params }: { params: Promise<{ rideId: s
   const fetchRideData = useCallback(async () => {
     try {
       const res = await apiClient.get(`/admin/rides/${rideId}`);
-      setRide(res.data.data);
+      const raw = res.data?.data || res.data;
+      if (!raw) return;
+      const rideData: RideRecord = {
+        id: raw.rideId || raw.bookingId || raw.publicId || rideId,
+        bookingId: raw.bookingId || raw.publicId || rideId,
+        customerId: raw.customerId || raw.customer?.userId || 'N/A',
+        customerName: raw.customer?.name || raw.customerName || 'Customer',
+        customerPhoneMasked: raw.customer?.phone || raw.customerPhoneMasked || '+91 ••••• •••••',
+        driverId: raw.driverId || raw.assignedDriverId || undefined,
+        driverName: raw.driver?.name || raw.driverName || (raw.driverId ? 'Assigned Driver' : undefined),
+        driverPhoneMasked: raw.driver?.phone || raw.driverPhoneMasked || undefined,
+        vehicleRegistration: raw.vehicle?.registrationNumber || raw.vehicleRegistration || undefined,
+        vehicleModel: raw.vehicle?.model || raw.vehicleModel || undefined,
+        categoryId: raw.categoryId || 'standard',
+        categoryName: raw.categoryName || 'Standard',
+        pickup: raw.pickup || { lat: 28.6139, lng: 77.2090, label: raw.pickupLabel || 'Pickup' },
+        drop: raw.drop || { lat: 28.5355, lng: 77.3910, label: raw.dropLabel || 'Drop' },
+        status: raw.status || 'COMPLETED',
+        paymentStatus: raw.paymentStatus || 'NOT_DUE',
+        paymentMethod: raw.paymentMethod || 'ONLINE',
+        rideType: raw.rideType || 'INSTANT',
+        fare: raw.fare || {
+          baseFarePaise: raw.estimatedFarePaise || 0,
+          distanceFarePaise: 0,
+          timeFarePaise: 0,
+          surgeMultiplier: 1.0,
+          subtotalPaise: raw.finalFarePaise || raw.estimatedFarePaise || 0,
+          totalPaise: raw.finalFarePaise || raw.estimatedFarePaise || 0,
+          finalTotalPaise: raw.finalFarePaise || raw.estimatedFarePaise || 0,
+        },
+        routePolyline: raw.routePolyline || [
+          [raw.pickup?.lat || 28.6139, raw.pickup?.lng || 77.2090],
+          [raw.drop?.lat || 28.5355, raw.drop?.lng || 77.3910],
+        ],
+        requestedAt: raw.requestedAt || new Date().toISOString(),
+        acceptedAt: raw.acceptedAt,
+        startedAt: raw.startedAt,
+        completedAt: raw.completedAt,
+        cancelledAt: raw.cancelledAt,
+      };
+      setRide(rideData);
+    } catch (err) {
+      console.warn('Failed to fetch ride:', err);
     } finally {
       setLoading(false);
     }
@@ -69,9 +111,19 @@ export default function RideDetailPage({ params }: { params: Promise<{ rideId: s
 
   const loadReceipt = async () => {
     if (!ride) return;
-    const res = await apiClient.get(`/admin/bookings/${ride.bookingId}/receipt`);
-    setReceipt(res.data.data);
-    setShowReceiptModal(true);
+    try {
+      const res = await apiClient.get(`/rides/${ride.id}/receipt`);
+      setReceipt(res.data.data);
+      setShowReceiptModal(true);
+    } catch {
+      try {
+        const res = await apiClient.get(`/admin/bookings/${ride.bookingId}/receipt`);
+        setReceipt(res.data.data);
+        setShowReceiptModal(true);
+      } catch (err: any) {
+        alert('Receipt not available: ' + (err?.message || 'trip in progress'));
+      }
+    }
   };
 
   const handleCancelSubmit = async (e: React.FormEvent) => {

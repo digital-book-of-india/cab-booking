@@ -26,9 +26,40 @@ export default function RideExplorerPage() {
     queryKey: ['admin', 'rides', selectedStatus, activeSearch],
     queryFn: async () => {
       const statusParam = selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : '';
-      const searchParam = activeSearch ? `&search=${encodeURIComponent(activeSearch)}` : '';
-      const res = await apiClient.get(`/admin/rides?page=1&limit=50${statusParam}${searchParam}`);
-      return res.data.data;
+      const searchParam = activeSearch ? `&q=${encodeURIComponent(activeSearch)}` : '';
+      const res = await apiClient.get(`/admin/bookings?page=1&limit=50${statusParam}${searchParam}`);
+      const raw = Array.isArray(res.data?.data)
+        ? res.data.data
+        : res.data?.data?.items || res.data?.items || [];
+      return raw.map((b: any) => ({
+        id: b.bookingId || b.publicId || b._id || b.id,
+        bookingId: b.bookingId || b.publicId || b.id,
+        customerId: b.customer?.userId || b.customerId || 'N/A',
+        customerName: b.customer?.name || b.customerName || 'Customer',
+        customerPhoneMasked: b.customer?.phone || b.customerPhoneMasked || '+91 ••••• •••••',
+        driverId: b.driverId || b.assignedDriverId,
+        driverName: b.driverName || (b.driverId ? 'Assigned Driver' : undefined),
+        driverPhoneMasked: b.driverPhone || undefined,
+        vehicleRegistration: b.vehicleRegistration || undefined,
+        categoryId: b.categoryId || 'standard',
+        categoryName: b.categoryName || 'Standard Cab',
+        pickup: b.pickup || { lat: 28.6139, lng: 77.2090, label: b.pickupLabel || 'Pickup' },
+        drop: b.drop || { lat: 28.5355, lng: 77.3910, label: b.dropLabel || 'Drop' },
+        status: b.status,
+        paymentStatus: b.paymentStatus || 'NOT_DUE',
+        paymentMethod: b.paymentMethod || 'ONLINE',
+        rideType: b.rideType || 'INSTANT',
+        fare: {
+          baseFarePaise: b.estimatedFarePaise || 0,
+          distanceFarePaise: 0,
+          timeFarePaise: 0,
+          surgeMultiplier: 1.0,
+          subtotalPaise: b.finalFarePaise || b.estimatedFarePaise || 0,
+          totalPaise: b.finalFarePaise || b.estimatedFarePaise || 0,
+          finalTotalPaise: b.finalFarePaise || b.estimatedFarePaise || 0,
+        },
+        requestedAt: b.requestedAt || new Date().toISOString(),
+      }));
     },
   });
 
@@ -53,7 +84,9 @@ export default function RideExplorerPage() {
               key={f.value}
               onClick={() => setSelectedStatus(f.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                selectedStatus === f.value ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                selectedStatus === f.value
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               {f.label}
@@ -61,12 +94,12 @@ export default function RideExplorerPage() {
           ))}
         </div>
 
-        <form onSubmit={handleSearch} className="flex items-center space-x-2 w-full md:w-80">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+        <form onSubmit={handleSearch} className="flex items-center space-x-2 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search Ride ID, Customer or Driver..."
+              placeholder="Search reference or user..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
@@ -97,6 +130,8 @@ export default function RideExplorerPage() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-400">Loading trips...</td></tr>
+            ) : rides.length === 0 ? (
+              <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-400">No trips matching criteria found.</td></tr>
             ) : (
               rides.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition">
@@ -112,7 +147,7 @@ export default function RideExplorerPage() {
                     {r.driverName ? (
                       <>
                         <p className="font-semibold text-slate-900 text-xs">{r.driverName}</p>
-                        <span className="text-[11px] font-mono text-slate-500">{r.vehicleRegistration}</span>
+                        <span className="text-[11px] font-mono text-slate-500">{r.vehicleRegistration || 'Active'}</span>
                       </>
                     ) : (
                       <span className="text-slate-400 italic text-xs">Unassigned</span>
@@ -137,21 +172,19 @@ export default function RideExplorerPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                        r.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {r.paymentStatus}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${
+                      r.paymentStatus === 'PAID' ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
+                    }`}>
+                      {r.paymentStatus} • {r.paymentMethod}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link
                       href={`/rides/${r.id}`}
-                      className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition text-xs font-semibold"
+                      className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
                     >
                       <Eye className="h-3.5 w-3.5" />
-                      <span>Details</span>
+                      <span>Audit</span>
                     </Link>
                   </td>
                 </tr>

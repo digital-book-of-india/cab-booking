@@ -268,7 +268,13 @@ export function createAdminService(deps: {
 
     /** Everything ops needs to answer "what happened to this booking?". */
     async bookingDetail(actor: Actor, bookingPublicId: string) {
-      const booking = await Booking.findOne({ publicId: bookingPublicId }).lean();
+      let booking = await Booking.findOne({ publicId: bookingPublicId }).lean();
+      if (!booking) {
+        const ride = await Ride.findOne({ publicId: bookingPublicId }).lean();
+        if (ride) {
+          booking = await Booking.findById(ride.bookingId).lean();
+        }
+      }
       if (!booking) throw new AppError('NOT_FOUND');
       const [customer, ride, events, offers] = await Promise.all([
         User.findById(booking.customerId).select('name phone').lean(),

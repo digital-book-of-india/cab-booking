@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { ScheduledRide } from '@/types';
@@ -11,23 +11,46 @@ export default function ScheduledRidesPage() {
   const [rides, setRides] = useState<ScheduledRide[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchScheduled = async () => {
+  const fetchScheduled = useCallback(async () => {
     try {
-      const res = await apiClient.get('/admin/scheduled-rides');
-      setRides(res.data.data);
+      const res = await apiClient.get('/admin/bookings?status=SCHEDULED');
+      const raw = Array.isArray(res.data?.data)
+        ? res.data.data
+        : res.data?.data?.items || res.data?.items || [];
+      const mapped: ScheduledRide[] = raw.map((b: any) => ({
+        id: b.bookingId || b.publicId || b._id || b.id,
+        customerId: b.customer?.userId || b.customerId || 'N/A',
+        customerName: b.customer?.name || b.customerName || 'Customer',
+        customerPhoneMasked: b.customer?.phone || b.customerPhoneMasked || '+91 ••••• •••••',
+        categoryId: b.categoryId || 'standard',
+        categoryName: b.categoryName || 'Standard Cab',
+        scheduledTime: b.scheduledFor || b.scheduledPickupTime || b.requestedAt || new Date().toISOString(),
+        allocationWindowMinutes: 20,
+        estimatedFarePaise: b.estimatedFarePaise || b.finalFarePaise || 0,
+        status: b.status || 'SCHEDULED',
+      }));
+      setRides(mapped);
+    } catch (err) {
+      console.warn('Failed to load scheduled bookings:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchScheduled();
-  }, []);
+  }, [fetchScheduled]);
 
   const handleCancelScheduled = async (id: string) => {
     if (!confirm('Are you sure you want to cancel this scheduled booking?')) return;
-    await apiClient.post(`/scheduled-rides/${id}/cancel`);
-    fetchScheduled();
+    try {
+      await apiClient.post(`/admin/bookings/${id}/scheduled/cancel`, {
+        reason: 'Operational cancellation from admin desk',
+      });
+      fetchScheduled();
+    } catch (err: any) {
+      alert(err?.response?.data?.error?.message || err?.message || 'Failed to cancel scheduled booking.');
+    }
   };
 
   return (

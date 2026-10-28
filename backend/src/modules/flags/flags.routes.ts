@@ -20,16 +20,18 @@ export function flagsRouter(ctx: ModuleContext, flags: FlagsService): Router {
     ...staff,
     h(async () => ({ data: await flags.list() })),
   );
-  r.put(
-    '/admin/feature-flags/:key',
-    ...staff,
-    h(async (req) => ({
-      data: await flags.set(
-        actorFrom(req),
-        flagKeySchema.parse(req.params['key']),
-        setFlagSchema.parse(req.body),
-      ),
-    })),
-  );
+  const setHandler = h(async (req) => ({
+    data: await flags.set(
+      actorFrom(req),
+      flagKeySchema.parse(req.params['key']),
+      setFlagSchema.parse({
+        enabled: req.body?.enabled,
+        roles: req.body?.roles,
+        description: req.body?.description,
+      }),
+    ),
+  }));
+  r.put('/admin/feature-flags/:key', ...staff, setHandler);
+  r.patch('/admin/feature-flags/:key', ...staff, setHandler);
   return r;
 }

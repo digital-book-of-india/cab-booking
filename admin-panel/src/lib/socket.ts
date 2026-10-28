@@ -3,8 +3,9 @@ import { io, Socket } from 'socket.io-client';
 let socketInstance: Socket | null = null;
 
 const SOCKET_SERVER_URL =
+  process.env.NEXT_PUBLIC_SOCKET_SERVER_URL ||
   process.env.NEXT_PUBLIC_SOCKET_URL ||
-  (process.env.NEXT_PUBLIC_API_BASE_URL
+  (process.env.NEXT_PUBLIC_API_BASE_URL?.startsWith('http')
     ? process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/api\/v1\/?$/, '')
     : 'http://localhost:4000');
 

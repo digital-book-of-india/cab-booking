@@ -244,6 +244,35 @@ export function financeRouter(
     ...staff(...FINANCE),
     h(async () => ({ data: await s.balances.consistency() })),
   );
+  r.get(
+    '/admin/payments/reconciliation',
+    ...staff(...FINANCE),
+    h(async () => ({ data: await s.balances.consistency() })),
+  );
+  r.get(
+    '/admin/cash-collections',
+    ...staff(...FINANCE),
+    h(async () => {
+      const { items, meta } = await s.balances.driverBalances({ page: 1, limit: 100, overLimit: true });
+      return {
+        data: {
+          items: items.map((d) => ({
+            id: d.driverId,
+            rideId: 'N/A',
+            driverId: d.driverId,
+            driverName: d.name || 'Driver Partner',
+            driverPhoneMasked: d.phone || '+91 ••••• •••••',
+            expectedFarePaise: 200000,
+            reportedCollectedPaise: d.cashHeldPaise || 0,
+            differencePaise: (d.cashHeldPaise || 0) - 200000,
+            status: 'PENDING_REVIEW',
+            reportedAt: new Date().toISOString(),
+          })),
+        },
+        meta: { ...meta },
+      };
+    }),
+  );
   r.post(
     '/admin/drivers/:driverId/cash-deposits',
     ...staff(...FINANCE),

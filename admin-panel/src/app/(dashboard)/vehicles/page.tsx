@@ -25,8 +25,8 @@ export default function VehiclesPage() {
   const handleVerify = async (vehicleId: string, status: 'VERIFIED' | 'REJECTED') => {
     try {
       await apiClient.patch(`/admin/vehicles/${vehicleId}/verification`, {
-        verificationStatus: status,
-        reasonCode: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
+        status,
+        reason: status === 'REJECTED' ? 'DOCUMENT_MISMATCH' : undefined,
       });
       setToast({
         type: 'success',

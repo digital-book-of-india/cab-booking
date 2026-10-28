@@ -1,5 +1,6 @@
 import type { Actor } from '../../common/actor';
 import { AppError } from '../../common/errors';
+import { escapeRegex } from '../../common/zod';
 import type { AuditService } from '../audit/audit.service';
 import { CabCategory } from '../categories/cabCategory.model';
 import { requireDriverProfile } from '../drivers/drivers.service';
@@ -106,6 +107,16 @@ export function createVehiclesService(deps: { audit: AuditService }) {
         metadata: { reason: input.reason },
       });
       return view(updated);
+    },
+
+    async listAll(query?: { verificationStatus?: string; q?: string }) {
+      const filter: Record<string, unknown> = {};
+      if (query?.verificationStatus) filter['verificationStatus'] = query.verificationStatus;
+      if (query?.q) {
+        filter['registrationNumber'] = new RegExp(escapeRegex(query.q), 'i');
+      }
+      const rows = await Vehicle.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+      return rows.map(view);
     },
   };
 }

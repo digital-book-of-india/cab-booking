@@ -40,9 +40,8 @@ export default function FeatureFlagsPage() {
     setSaving(true);
 
     try {
-      await apiClient.patch(`/admin/feature-flags/${selectedFlag.key}`, {
+      await apiClient.put(`/admin/feature-flags/${selectedFlag.key}`, {
         enabled: targetState,
-        changeReason,
       });
       setSelectedFlag(null);
       fetchFlags();

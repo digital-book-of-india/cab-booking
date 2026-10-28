@@ -22,6 +22,29 @@ export function adminRouter(ctx: ModuleContext, service: AdminService): Router {
   );
   r.get('/admin/bookings', ...view, c.listBookings);
   r.get('/admin/bookings/:bookingId', ...view, c.bookingDetail);
+  r.get('/admin/rides', ...view, c.listBookings);
+  r.get('/admin/rides/:bookingId', ...view, c.bookingDetail);
+  r.get('/admin/outstanding', ...view, async (req, res, next) => {
+    try {
+      const { items } = await service.listBookings({ paymentStatus: 'DUE', limit: 100 } as any);
+      res.json({
+        success: true,
+        data: items.map((b: any) => ({
+          rideId: b.rideId || b.bookingId,
+          bookingId: b.bookingId,
+          customerId: b.customer?.userId || b.customerId || 'N/A',
+          customerName: b.customer?.name || 'Customer',
+          customerPhoneMasked: b.customer?.phone || '+91 ••••• •••••',
+          amountDuePaise: b.finalFarePaise || b.estimatedFarePaise || 0,
+          status: b.paymentStatus || 'DUE',
+          bookingRestriction: b.paymentStatus === 'DUE' ? 'RESTRICTED' : 'ACTIVE',
+          completedAt: b.requestedAt || new Date().toISOString(),
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
   r.get('/admin/rides/:rideId/trail', ...view, c.rideTrail);
   r.post(
     '/admin/bookings/:bookingId/fee/waive',

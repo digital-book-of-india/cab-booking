@@ -14,6 +14,34 @@ export function pricingRouter(ctx: ModuleContext, service: PricingService): Rout
   r.post('/admin/pricing/configs', ...admin, c.create);
   r.get('/admin/pricing/configs', ...admin, c.list);
   r.get('/admin/pricing/configs/active', ...admin, c.active);
+  r.post('/admin/pricing/preview', ...admin, async (req, res, next) => {
+    try {
+      const distanceMeters = Number(req.body?.distanceMeters) || 10000;
+      const durationSeconds = Number(req.body?.durationSeconds) || 600;
+      const active = await service.listConfigs({ page: 1, limit: 1 });
+      const first = active.items[0];
+      const baseFarePaise = first ? first.baseFarePaise : 5000;
+      const perKmPaise = first ? first.perKmPaise : 1200;
+      const perMinutePaise = first ? first.perMinutePaise : 200;
+      const distanceFarePaise = Math.round((distanceMeters / 1000) * perKmPaise);
+      const timeFarePaise = Math.round((durationSeconds / 60) * perMinutePaise);
+      const estimatedTotalPaise = baseFarePaise + distanceFarePaise + timeFarePaise;
+      res.json({
+        success: true,
+        data: {
+          configVersion: first?.version || 1,
+          breakdown: {
+            baseFarePaise,
+            distanceFarePaise,
+            timeFarePaise,
+            estimatedTotalPaise,
+          },
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   return r;
 }

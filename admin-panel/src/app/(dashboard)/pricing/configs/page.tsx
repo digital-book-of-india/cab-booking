@@ -142,7 +142,7 @@ export default function PricingConfigsPage() {
     queryKey: ['admin-categories'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/admin/vehicles/categories');
+        const res = await apiClient.get('/admin/cab-categories');
         return Array.isArray(res.data?.data) ? res.data.data : res.data?.data?.items || [];
       } catch {
         return [

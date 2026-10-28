@@ -27,5 +27,9 @@ export function createVehiclesController(service: VehiclesService) {
     ok(res, await service.verify(actorFrom(req), vehicleId, input));
   };
 
-  return { create, listOwn, updateOwn, verify };
+  const listAll: RequestHandler = async (req, res) => {
+    ok(res, await service.listAll(req.query as { verificationStatus?: string; q?: string }));
+  };
+
+  return { create, listOwn, updateOwn, verify, listAll };
 }

@@ -103,7 +103,7 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
     if (!driver) return;
     setActionLoading(true);
     try {
-      await apiClient.post(`/admin/drivers/${driverId}/approve`);
+      await apiClient.patch(`/admin/drivers/${driverId}/approval`, { decision: 'APPROVE' });
       showToast(`Driver ${driver.name || driverId} has been approved for live operations!`, 'success');
       fetchDriver();
     } catch (err: unknown) {
@@ -127,13 +127,13 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
     setActionLoading(true);
     try {
       if (decisionModal.type === 'REJECT') {
-        await apiClient.post(`/admin/drivers/${driverId}/reject`, { reason: combinedReason });
+        await apiClient.patch(`/admin/drivers/${driverId}/approval`, { decision: 'REJECT', reason: combinedReason });
         showToast('Driver onboarding application rejected.', 'success');
       } else if (decisionModal.type === 'REQUEST_RESUBMISSION') {
-        await apiClient.post(`/admin/drivers/${driverId}/request-resubmission`, { reason: combinedReason });
+        await apiClient.patch(`/admin/drivers/${driverId}/approval`, { decision: 'REQUEST_RESUBMISSION', reason: combinedReason });
         showToast('Document resubmission notice dispatched to driver.', 'success');
       } else if (decisionModal.type === 'SUSPEND') {
-        await apiClient.post(`/admin/drivers/${driverId}/suspend`, { reason: combinedReason });
+        await apiClient.patch(`/admin/drivers/${driverId}/approval`, { decision: 'SUSPEND', reason: combinedReason });
         showToast('Driver account suspended immediately.', 'success');
       }
       setDecisionModal(null);
@@ -152,7 +152,7 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
   const handleApproveDoc = async (docId: string) => {
     setActionLoading(true);
     try {
-      await apiClient.patch(`/admin/drivers/${driverId}/documents/${docId}/review`, {
+      await apiClient.patch(`/admin/drivers/${driverId}/documents/${docId}`, {
         status: 'APPROVED',
       });
       showToast('Document approved successfully.', 'success');
@@ -173,9 +173,9 @@ export default function DriverDetailPage({ params }: { params: Promise<{ driverI
   const handleRejectDoc = async (docId: string, reason: string) => {
     setActionLoading(true);
     try {
-      await apiClient.patch(`/admin/drivers/${driverId}/documents/${docId}/review`, {
+      await apiClient.patch(`/admin/drivers/${driverId}/documents/${docId}`, {
         status: 'REJECTED',
-        rejectionReason: reason,
+        reason: reason || 'Document rejected by reviewer',
       });
       showToast('Document rejected.', 'success');
       fetchDriver();

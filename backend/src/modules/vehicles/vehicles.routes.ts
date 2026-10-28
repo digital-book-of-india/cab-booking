@@ -9,6 +9,7 @@ export function vehiclesRouter(ctx: ModuleContext): Router {
   const r = Router();
   const c = createVehiclesController(createVehiclesService({ audit: ctx.audit }));
   const driverOnly = [ctx.authenticate, requireRole('DRIVER')];
+  const reviewers = [ctx.authenticate, requireRole(...DRIVER_REVIEW_ROLES)];
 
   r.post('/drivers/me/vehicles', ...driverOnly, c.create);
   r.get('/drivers/me/vehicles', ...driverOnly, c.listOwn);
@@ -19,6 +20,7 @@ export function vehiclesRouter(ctx: ModuleContext): Router {
     requireRole(...DRIVER_REVIEW_ROLES),
     c.verify,
   );
+  r.get('/admin/vehicles', ...reviewers, c.listAll);
 
   return r;
 }

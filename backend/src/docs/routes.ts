@@ -249,6 +249,13 @@ export const routes: RouteDoc[] = [
   },
   {
     method: 'get',
+    path: '/admin/vehicles',
+    tag: 'Admin',
+    summary: 'List all vehicles for fleet verification',
+    auth: REVIEW,
+  },
+  {
+    method: 'get',
     path: '/admin/audit-logs',
     tag: 'Admin',
     summary: 'Search audit log',
