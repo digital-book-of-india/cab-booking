@@ -69,6 +69,11 @@ apiClient.interceptors.response.use(
 
     if (status === 401) {
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        sessionStorage.removeItem('auth_token');
+        document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'user_role=; path=/; max-age=0; SameSite=Lax';
         const redirectPath = '/login?redirect=' + encodeURIComponent(window.location.pathname);
         window.location.replace(redirectPath);
       }
