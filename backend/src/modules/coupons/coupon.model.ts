@@ -27,6 +27,10 @@ const couponSchema = new Schema(
     categoryIds: { type: [Schema.Types.ObjectId], default: [] },
     // Uses reserved so far (released again if the ride never happens).
     redemptionsCount: { type: Number, default: 0 },
+    // Dynamic visual styling controlled by backend
+    icon: { type: String, maxlength: 50 },
+    badgeColor: { type: String, maxlength: 30 },
+    badgeBg: { type: String, maxlength: 30 },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

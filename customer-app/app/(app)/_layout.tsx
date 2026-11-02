@@ -3,9 +3,22 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+// Sub-screens that should not appear on the bottom tab dock and should be full-screen.
+// In Expo Router 58, setting `href: null` flags screens with `hidden: true`,
+// which causes `useVisibleTabsWithRedirect` to force a redirect to the initial tab (Home).
+// Using `tabBarButton: () => null` and `tabBarItemStyle: { display: "none" }` safely hides them from the dock
+// without triggering that redirect.
+const HIDDEN_SUB_SCREEN_OPTIONS = {
+  headerShown: false,
+  tabBarStyle: { display: "none" as const },
+  tabBarItemStyle: { display: "none" as const },
+  tabBarButton: () => null,
+};
+
 export default function AppLayout() {
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#FFFFFF",
@@ -105,78 +118,62 @@ export default function AppLayout() {
         }}
       />
 
-      {/* 5. HIDDEN SUB-ROUTES (Accessible via code/links without showing tab icons) */}
+      {/* 5. SUB-ROUTES (Hidden from bottom dock, full-screen, without href:null auto-redirect) */}
       <Tabs.Screen
         name="wallet/index"
-        options={{
-          href: null, // Hidden from tab dock, but still navigable from the app
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="family/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="rewards/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="rides/[id]"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="rides/receipt/[id]"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="places/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="support/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="support/[id]"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
+      />
+      <Tabs.Screen
+        name="support/tickets"
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="notifications/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="sessions/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="contacts/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
       <Tabs.Screen
         name="preferences/index"
-        options={{
-          href: null,
-        }}
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
+      />
+      <Tabs.Screen
+        name="safety/index"
+        options={HIDDEN_SUB_SCREEN_OPTIONS}
       />
     </Tabs>
   );

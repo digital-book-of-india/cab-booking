@@ -115,12 +115,26 @@ export const IssueModal: React.FC<IssueModalProps> = ({
         fullMessage = `${fullMessage}\n\n[Ride Details: ${pickup} ➔ ${drop} | Fare: ₹${fare}]`;
       }
 
+      // Ensure subject is between 3 and 120 chars
+      const subject =
+        subIssueTitle.trim().length >= 3
+          ? subIssueTitle.trim().slice(0, 120)
+          : "Support Inquiry";
+
+      // Only pass bookingId if it matches the backend pattern ^bk_[0-9a-f]{12}$
+      const cleanBookingId =
+        selectedRideId && /^bk_[0-9a-f]{12}$/.test(selectedRideId)
+          ? selectedRideId
+          : selectedRide?.bookingId && /^bk_[0-9a-f]{12}$/.test(selectedRide.bookingId)
+          ? selectedRide.bookingId
+          : undefined;
+
       // Create ticket via backend service
       const createdTicket = await SupportService.createTicket({
-        subject: subIssueTitle,
-        message: fullMessage,
+        subject,
+        message: fullMessage.slice(0, 2000),
         category: backendCategory,
-        bookingId: selectedRideId,
+        bookingId: cleanBookingId,
       });
 
       if (onTicketCreated) {
@@ -128,7 +142,7 @@ export const IssueModal: React.FC<IssueModalProps> = ({
       }
 
       Alert.alert(
-        "Request Submitted ✓",
+        "Request Submitted",
         "Our customer support team has received your request and will follow up shortly.",
         [{ text: "OK", onPress: onClose }]
       );

@@ -1,8 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "../../../src/components/common/Header";
 import { IssueModal } from "../../../src/components/support/IssueModal";
@@ -31,6 +36,7 @@ import {
 } from "../../../src/types/support.types";
 
 export default function SupportTicketsScreen() {
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
   const params = useLocalSearchParams<{ rideId?: string }>();
 
   // Tickets & Recent Ride State
@@ -89,9 +95,11 @@ export default function SupportTicketsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -119,18 +127,13 @@ export default function SupportTicketsScreen() {
   }, [searchQuery]);
 
   const handleSubIssuePress = (issue: HelpSubIssue) => {
-    if (issue.actionType === "CALL") {
-      Linking.openURL("tel:18001234567").catch(() => {
-        Alert.alert(
-          "Customer Care",
-          "Helpline: 1800-123-4567\nAvailable 24/7 for emergency ride assistance."
-        );
-      });
+    if (issue.id === "c_4") {
+      router.push("/(app)/support/tickets");
       return;
     }
 
     if (issue.id === "a_3" || issue.id === "a_4") {
-      router.navigate("/(app)/profile" as any);
+      router.push("/(app)/profile");
       return;
     }
 
@@ -158,9 +161,20 @@ export default function SupportTicketsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Help & Support" showBack onBack={() => router.back()} />
+      <Header
+        title="Help & Support"
+        showBack
+        onBack={() => {
+          if (params.rideId && router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace("/(app)/profile");
+          }
+        }}
+      />
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -236,46 +250,16 @@ export default function SupportTicketsScreen() {
           </View>
         ) : (
           <>
-            {/* Quick Action Bar (Call, Live Chat, Tickets) */}
+            {/* Quick Action Bar (My Tickets) */}
             <View style={styles.contactRow}>
               <TouchableOpacity
                 style={styles.contactBtn}
-                onPress={() => Linking.openURL("tel:18001234567")}
+                onPress={() => router.push("/(app)/support/tickets")}
                 activeOpacity={0.7}
               >
-                <Ionicons name="call" size={16} color="#16A34A" />
-                <Text style={styles.contactBtnText}>Call Helpline</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.contactBtn}
-                onPress={() => {
-                  setSelectedIssue({
-                    title: "Live Chat Support Request",
-                    category: "OTHER",
-                    requiresRide: false,
-                  });
-                  setIssueModalVisible(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chatbubbles" size={16} color="#2563EB" />
-                <Text style={styles.contactBtnText}>Live Chat</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.contactBtn}
-                onPress={() => {
-                  Alert.alert(
-                    "My Requests",
-                    `You have ${tickets.length} support requests on record.`
-                  );
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="ticket" size={16} color="#D97706" />
+                <Ionicons name="ticket" size={17} color="#D97706" />
                 <Text style={styles.contactBtnText}>
-                  Tickets ({tickets.length})
+                  My Tickets ({tickets.length})
                 </Text>
               </TouchableOpacity>
             </View>
@@ -288,7 +272,11 @@ export default function SupportTicketsScreen() {
                     <Text style={styles.recentTripBadgeText}>RECENT TRIP</Text>
                   </View>
                   <Text style={styles.recentTripDate}>
-                    {recentRide.createdAt ? new Date(recentRide.createdAt).toDateString().slice(4, 10) : 'Recent'}
+                    {recentRide.createdAt
+                      ? new Date(recentRide.createdAt)
+                          .toDateString()
+                          .slice(4, 10)
+                      : "Recent"}
                   </Text>
                 </View>
 
@@ -302,7 +290,8 @@ export default function SupportTicketsScreen() {
                   <Text style={styles.recentTripFare}>
                     ₹
                     {(
-                      (recentRide.farePaise ??
+                      (recentRide.finalFarePaise ??
+                        recentRide.farePaise ??
                         recentRide.estimatedFarePaise ??
                         0) / 100
                     ).toFixed(0)}
@@ -384,30 +373,6 @@ export default function SupportTicketsScreen() {
                 </View>
               );
             })}
-
-            {/* Previous Tickets */}
-            {tickets.length > 0 && (
-              <View style={{ marginTop: 16 }}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
-                    Your Previous Requests
-                  </Text>
-                </View>
-
-                {tickets.map((t, index) => (
-                  <TicketItem
-                    key={t.ticketId || t.id || String(index)}
-                    ticket={t}
-                    onPress={(ticket) =>
-                      router.navigate({
-                        pathname: "/(app)/support/[id]",
-                        params: { id: ticket.ticketId || ticket.id || "" },
-                      })
-                    }
-                  />
-                ))}
-              </View>
-            )}
           </>
         )}
       </ScrollView>

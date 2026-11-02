@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   Text,
@@ -12,7 +13,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { AppButton } from '../common/AppButton';
 import { COLORS } from '../../constants/colors';
+import { apiRequest } from '../../services/api';
 import { styles } from './RideBookingModal.styles';
+
+export type RideCoupon = {
+  id: string;
+  code: string;
+  title?: string;
+  description?: string;
+  type?: 'PERCENT' | 'FLAT';
+  value?: number;
+  maxDiscountPaise?: number | null;
+  minFarePaise?: number;
+  icon?: string;
+  badgeColor?: string;
+  badgeBg?: string;
+};
 
 export type RideOption = {
   id: string;
@@ -102,9 +118,64 @@ export const RideBookingModal: React.FC<RideBookingModalProps> = ({
   const [selectedRide, setSelectedRide] = useState<string>(initialServiceId);
   const [paymentMode, setPaymentMode] = useState<'WALLET' | 'CASH' | 'UPI'>('WALLET');
   const [bookingStep, setBookingStep] = useState<'SELECT' | 'CONFIRMING' | 'CONFIRMED'>('SELECT');
+  const [activeOffers, setActiveOffers] = useState<RideCoupon[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<RideCoupon | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      apiRequest<RideCoupon[]>('coupons/active')
+        .then((res) => {
+          const list = Array.isArray(res) ? res : (res as any)?.items || [];
+          setActiveOffers(list);
+          if (list.length > 0 && !selectedCoupon) {
+            setSelectedCoupon(list[0]);
+          }
+        })
+        .catch(() => {
+          setActiveOffers([]);
+        });
+    }
+  }, [visible]);
+
+  const calculateDiscount = (basePrice: number) => {
+    if (!selectedCoupon) return 0;
+    const basePaise = basePrice * 100;
+    if (selectedCoupon.minFarePaise && basePaise < selectedCoupon.minFarePaise) return 0;
+    let discPaise = 0;
+    if (selectedCoupon.type === 'PERCENT') {
+      discPaise = Math.round((basePaise * (selectedCoupon.value || 0)) / 10000);
+      if (selectedCoupon.maxDiscountPaise) {
+        discPaise = Math.min(discPaise, selectedCoupon.maxDiscountPaise);
+      }
+    } else {
+      discPaise = selectedCoupon.value || 0;
+    }
+    const finalPaise = Math.max(100, basePaise - discPaise);
+    return Math.round((basePaise - finalPaise) / 100);
+  };
+
+  const handleToggleCoupon = () => {
+    if (activeOffers.length === 0) {
+      Alert.alert('Offers', 'No active offers available right now.');
+      return;
+    }
+    if (!selectedCoupon) {
+      setSelectedCoupon(activeOffers[0]);
+      return;
+    }
+    const currentIndex = activeOffers.findIndex((o) => o.code === selectedCoupon.code);
+    const nextIndex = (currentIndex + 1) % (activeOffers.length + 1);
+    if (nextIndex === activeOffers.length) {
+      setSelectedCoupon(null);
+    } else {
+      setSelectedCoupon(activeOffers[nextIndex]);
+    }
+  };
 
   const selectedOption =
     RIDE_OPTIONS.find((r) => r.id === selectedRide) || RIDE_OPTIONS[0];
+  const couponDiscount = calculateDiscount(selectedOption.price);
+  const finalPrice = Math.max(1, selectedOption.price - couponDiscount);
 
   const handleBookNow = () => {
     setBookingStep('CONFIRMING');
@@ -314,16 +385,70 @@ export const RideBookingModal: React.FC<RideBookingModalProps> = ({
                   <Ionicons name="chevron-down" size={14} color={COLORS.textSecondary} />
                 </TouchableOpacity>
 
-                <View style={styles.couponPill}>
-                  <Ionicons name="pricetag" size={12} color="#B45309" />
-                  <Text style={styles.couponText}>WELCOME50 applied</Text>
-                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.couponPill,
+                    selectedCoupon
+                      ? {
+                          backgroundColor: selectedCoupon.badgeBg || '#FEF3C7',
+                        }
+                      : {
+                          backgroundColor: '#F1F5F9',
+                        },
+                  ]}
+                  onPress={handleToggleCoupon}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={
+                      selectedCoupon
+                        ? (selectedCoupon.icon as keyof typeof Ionicons.glyphMap) ||
+                          (selectedCoupon.type === 'PERCENT' ? 'pricetag' : 'gift')
+                        : 'pricetag-outline'
+                    }
+                    size={12}
+                    color={
+                      selectedCoupon
+                        ? selectedCoupon.badgeColor || '#B45309'
+                        : COLORS.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.couponText,
+                      {
+                        color: selectedCoupon
+                          ? selectedCoupon.badgeColor || '#B45309'
+                          : COLORS.textSecondary,
+                      },
+                    ]}
+                  >
+                    {selectedCoupon
+                      ? `${selectedCoupon.code}${couponDiscount > 0 ? ` (-₹${couponDiscount})` : ''}`
+                      : 'Apply Offer'}
+                  </Text>
+                  {selectedCoupon && (
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setSelectedCoupon(null);
+                      }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={14}
+                        color={selectedCoupon.badgeColor || '#B45309'}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
               </View>
 
               {/* CTA Button */}
               <View style={styles.ctaContainer}>
                 <AppButton
-                  title={`Book ${selectedOption.name} • ₹${selectedOption.price}`}
+                  title={`Book ${selectedOption.name} • ₹${finalPrice}`}
                   onPress={handleBookNow}
                 />
               </View>

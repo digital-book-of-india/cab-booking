@@ -39,8 +39,9 @@ export default function OtpScreen() {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  const handleVerify = async () => {
-    if (otp.length !== 6) {
+  const handleVerify = async (codeToVerify?: string) => {
+    const code = codeToVerify || otp;
+    if (code.length !== 6) {
       setError('Please enter the complete 6-digit verification code.');
       return;
     }
@@ -48,22 +49,23 @@ export default function OtpScreen() {
     try {
       setError(null);
       setLoading(true);
-      const verifiedUser = await verifyOtp(otp, {
+      const verifiedUser = await verifyOtp(code, {
         platform: Platform.OS,
         appVersion: '1.0.0',
       });
 
+      // Route based on whether new user needs to complete their profile name
       if (!verifiedUser.profileComplete) {
         router.replace('/(auth)/complete-profile');
       } else {
         router.replace('/(app)');
       }
     } catch (err) {
-      if (otp === '123456') {
-        router.replace('/(app)');
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'Invalid or expired OTP. Please try again.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Invalid or expired OTP. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -125,23 +127,31 @@ export default function OtpScreen() {
                 onChange={(val) => {
                   setOtp(val);
                   setError(null);
+                  if (val.length === 6) {
+                    handleVerify(val);
+                  }
                 }}
                 error={Boolean(error)}
               />
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              {/* Dev Mode Test OTP Helper */}
-              <TouchableOpacity
-                style={styles.testOtpBanner}
-                onPress={() => setOtp('123456')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.testOtpText}>
-                  🧪 Test Mode: Tap here to auto-fill OTP{' '}
-                  <Text style={{ fontWeight: '800' }}>123456</Text>
-                </Text>
-              </TouchableOpacity>
+              {/* Dev Mode Test OTP Helper (Only visible in development) */}
+              {__DEV__ && (
+                <TouchableOpacity
+                  style={styles.testOtpBanner}
+                  onPress={() => {
+                    setOtp('123456');
+                    handleVerify('123456');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.testOtpText}>
+                    🧪 Dev Mode: Tap to auto-fill code{' '}
+                    <Text style={{ fontWeight: '800' }}>123456</Text>
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.resendRow}>
                 <Text style={styles.resendText}>Didn't receive the code?</Text>
@@ -167,7 +177,7 @@ export default function OtpScreen() {
         <View style={styles.footer}>
           <AppButton
             title="Verify & Proceed"
-            onPress={handleVerify}
+            onPress={() => handleVerify()}
             loading={loading}
             disabled={otp.length !== 6}
           />

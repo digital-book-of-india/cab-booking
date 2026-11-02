@@ -263,11 +263,23 @@ export function createSupportService(deps: {
           .lean(),
       ]);
       return {
-        items: rows.map((t) => ({
-          ...view(t as unknown as TicketDoc, false),
-          messages: undefined,
-          messageCount: t.messages.filter((m) => !m.internal).length,
-        })),
+        items: rows.map((t) => {
+          const publicMsgs = (t.messages || []).filter((m) => !m.internal);
+          const last = publicMsgs[publicMsgs.length - 1];
+          return {
+            ...view(t as unknown as TicketDoc, false),
+            messages: undefined,
+            messageCount: publicMsgs.length,
+            lastMessage: last
+              ? {
+                  id: last.id,
+                  by: last.by,
+                  text: last.text,
+                  at: last.at,
+                }
+              : null,
+          };
+        }),
         meta: pageMeta(query.page, query.limit, total),
       };
     },

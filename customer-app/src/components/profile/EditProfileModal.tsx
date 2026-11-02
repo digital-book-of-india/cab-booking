@@ -19,7 +19,8 @@ export type EditProfileModalProps = {
   visible: boolean;
   onClose: () => void;
   currentName: string;
-  currentPhone: string; // <-- Changed from currentEmail to currentPhone
+  currentPhone: string;
+  currentEmail?: string;
   onSaveSuccess?: () => void;
 };
 
@@ -28,12 +29,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   currentName,
   currentPhone,
+  currentEmail = "",
   onSaveSuccess,
 }) => {
   const { updateProfile } = useAuth();
 
   const [name, setName] = useState(currentName);
-  const [phone, setPhone] = useState(currentPhone); // <-- Phone state
+  const [email, setEmail] = useState(currentEmail);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -42,15 +44,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   useEffect(() => {
     if (visible) {
       setName(currentName);
-      setPhone(currentPhone || "");
+      setEmail(currentEmail || "");
       setError(null);
       setSuccessMsg(null);
     }
-  }, [visible, currentName, currentPhone]);
+  }, [visible, currentName, currentEmail]);
 
   const handleSave = async () => {
     const trimmedName = name.trim();
-    const cleanPhone = phone.trim();
+    const trimmedEmail = email.trim();
 
     // 1. Name validation
     if (!trimmedName) {
@@ -58,10 +60,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       return;
     }
 
-    // 2. Mobile number validation (e.g., standard 10 digits)
-    const phoneDigits = cleanPhone.replace(/\D/g, ""); // strip spaces or '+'
-    if (phoneDigits.length < 10) {
-      setError("Please enter a valid 10-digit mobile number");
+    // 2. Email format validation (optional, but must be valid if provided)
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -69,8 +70,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setError(null);
       setSaving(true);
 
-      // Call updateProfile with the updated name and phone
-      await updateProfile(trimmedName, cleanPhone);
+      // Call updateProfile with the updated name and email matching backend PATCH schema
+      await updateProfile(trimmedName, trimmedEmail || null);
 
       setSuccessMsg("Profile updated successfully!");
       if (onSaveSuccess) onSaveSuccess();
@@ -125,10 +126,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <Text style={styles.modalChangePhotoText}>Profile Initial</Text>
               </View>
 
-              {/* Form Inputs: Full Name & Mobile Number */}
+              {/* Form Inputs: Full Name, Email Address, and Read-Only Mobile Number */}
               <View style={styles.modalForm}>
                 <AppInput
-                  label="Full Name"
+                  label="Full Name *"
                   placeholder="Enter your full name"
                   value={name}
                   onChangeText={(val) => {
@@ -139,17 +140,37 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 />
 
                 <AppInput
-                  label="Mobile Number"
-                  placeholder="Enter 10-digit mobile number"
-                  value={phone}
+                  label="Email Address"
+                  placeholder="Enter your email address (optional)"
+                  value={email}
                   onChangeText={(val) => {
-                    setPhone(val);
+                    setEmail(val);
                     setError(null);
                   }}
-                  keyboardType="phone-pad"
-                  maxLength={13} // Allows for +91 or standard 10 digits
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   error={error || undefined}
                 />
+
+                <View>
+                  <AppInput
+                    label="Mobile Number"
+                    value={currentPhone || "Not linked"}
+                    editable={false}
+                    style={{ backgroundColor: "#F1F5F9", color: COLORS.textSecondary }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: COLORS.textSecondary,
+                      marginTop: -8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Mobile number is verified via OTP and linked to your account.
+                  </Text>
+                </View>
 
                 {successMsg ? (
                   <Text
@@ -171,7 +192,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     title="Save Changes"
                     onPress={handleSave}
                     loading={saving}
-                    disabled={!name.trim() || !phone.trim()}
+                    disabled={!name.trim()}
                   />
                 </View>
               </View>

@@ -32,6 +32,7 @@ type ApiOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
   token?: string | null;
   skipAuth?: boolean;
+  withMeta?: boolean;
 };
 
 async function parseResponse(response: Response): Promise<unknown> {
@@ -58,7 +59,7 @@ export async function apiRequest<T>(
     throw new Error('Missing EXPO_PUBLIC_API_URL in customer-app/.env');
   }
 
-  const { token, skipAuth, headers, body, signal, ...requestOptions } = options;
+  const { token, skipAuth, headers, body, signal, withMeta, ...requestOptions } = options;
 
   let authToken = token;
   if (!skipAuth && !authToken) {
@@ -104,17 +105,79 @@ export async function apiRequest<T>(
     const parsed = await parseResponse(response);
 
     if (!response.ok) {
+      // Automatic 401 token refresh interceptor (skip for auth routes to prevent loops)
+      if (
+        response.status === 401 &&
+        !skipAuth &&
+        !cleanPath.startsWith('auth/refresh') &&
+        !cleanPath.startsWith('auth/otp')
+      ) {
+        const storedRefreshToken = await TokenStorage.getRefreshToken();
+        if (storedRefreshToken) {
+          try {
+            const refreshRes = await fetch(`${baseURL}/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ refreshToken: storedRefreshToken }),
+            });
+            const refreshParsed = await parseResponse(refreshRes);
+            if (
+              refreshRes.ok &&
+              refreshParsed &&
+              typeof refreshParsed === 'object' &&
+              'data' in refreshParsed
+            ) {
+              const newTokens = (
+                refreshParsed as {
+                  data: { accessToken: string; refreshToken: string };
+                }
+              ).data;
+              if (newTokens?.accessToken) {
+                await TokenStorage.setTokens(
+                  newTokens.accessToken,
+                  newTokens.refreshToken,
+                );
+                // Retry the original request with the fresh access token
+                return await apiRequest<T>(path, {
+                  ...options,
+                  token: newTokens.accessToken,
+                });
+              }
+            } else {
+              // Refresh token is revoked or expired
+              await TokenStorage.clearTokens();
+            }
+          } catch {
+            // Network failure during refresh
+          }
+        }
+      }
+
       let message = `Request failed (${response.status})`;
       let code: string | undefined;
       let fieldErrors: ApiFieldError[] = [];
 
       if (parsed && typeof parsed === 'object') {
-        const errorObj = (parsed as { error?: { message?: string; code?: string; fieldErrors?: ApiFieldError[] } }).error;
+        const errorObj = (
+          parsed as {
+            error?: {
+              message?: string;
+              code?: string;
+              fieldErrors?: ApiFieldError[];
+            };
+          }
+        ).error;
         if (errorObj) {
           message = errorObj.message || message;
           code = errorObj.code;
           fieldErrors = errorObj.fieldErrors || [];
-        } else if ('message' in parsed && typeof (parsed as { message: unknown }).message === 'string') {
+        } else if (
+          'message' in parsed &&
+          typeof (parsed as { message: unknown }).message === 'string'
+        ) {
           message = (parsed as { message: string }).message;
         }
       }
@@ -124,6 +187,9 @@ export async function apiRequest<T>(
 
     // Backend wraps successful responses in { success: true, data: T, meta?: ... }
     if (parsed && typeof parsed === 'object' && 'data' in parsed && 'success' in parsed) {
+      if (withMeta) {
+        return { data: (parsed as any).data, meta: (parsed as any).meta } as any;
+      }
       return (parsed as { data: T }).data;
     }
 
@@ -148,4 +214,11 @@ export async function apiRequest<T>(
     clearTimeout(timeoutId);
     signal?.removeEventListener('abort', abortFromCaller);
   }
+}
+
+export async function apiRequestWithMeta<T, M = Record<string, unknown>>(
+  path: string,
+  options: Omit<ApiOptions, 'withMeta'> = {},
+): Promise<{ data: T; meta?: M }> {
+  return apiRequest<{ data: T; meta?: M }>(path, { ...options, withMeta: true });
 }

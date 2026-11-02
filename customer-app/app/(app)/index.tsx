@@ -7,12 +7,13 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RideBookingModal } from "../../src/components/home/RideBookingModal";
 import { ServiceCategories } from "../../src/components/home/ServiceCategories";
 import { COLORS } from "../../src/constants/colors";
 import { useAuth } from "../../src/context/AuthContext";
+import { useNotifications } from "../../src/context/NotificationContext";
 import { PaymentService } from "../../src/services/payment.service";
 import { styles } from "../../src/styles/home.styles";
 import type {
@@ -22,6 +23,7 @@ import type {
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { unreadCount, refreshUnreadCount } = useNotifications();
   const [wallet, setWallet] = useState<WalletView | null>(null);
   const [balance, setBalance] = useState<CustomerBalance | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,9 +55,16 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
+  // Re-check unread notifications whenever the home screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnreadCount();
+    }, [refreshUnreadCount]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.allSettled([loadData(), refreshUnreadCount()]);
     setRefreshing(false);
   };
 
@@ -90,26 +99,27 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
 
-          {/* Top Actions: SOS, Notifications, Profile */}
+          {/* Top Actions: Notifications, Profile */}
           <View style={styles.topActions}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => router.push("/(app)/contacts" as any)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="shield-checkmark" size={20} color="#DC2626" />
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => router.push("/(app)/notifications")}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications, ${unreadCount} unread`}
             >
               <Ionicons
-                name="notifications-outline"
+                name={unreadCount > 0 ? "notifications" : "notifications-outline"}
                 size={20}
-                color={COLORS.text}
+                color={unreadCount > 0 ? COLORS.primary : COLORS.text}
               />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity

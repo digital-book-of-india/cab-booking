@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -12,43 +12,70 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState } from '../../../src/components/common/EmptyState';
 import { Header } from '../../../src/components/common/Header';
 import { COLORS } from '../../../src/constants/colors';
-import { NotificationsService } from '../../../src/services/notifications.service';
+import { useNotifications } from '../../../src/context/NotificationContext';
 import { styles } from '../../../src/styles/notifications.styles';
 import type { AppNotification } from '../../../src/types/notification.types';
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await NotificationsService.listNotifications();
-      setNotifications(data);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    notifications,
+    isLoading,
+    isRefreshing,
+    fetchNotifications,
+    markAllAsRead,
+    markAsRead,
+  } = useNotifications();
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchNotifications();
-    setRefreshing(false);
+    await fetchNotifications(true);
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      await NotificationsService.markRead({ all: true });
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {
-      // ignore
+  const handleNotificationPress = async (item: AppNotification) => {
+    if (!item.read) {
+      await markAsRead(item.id);
+    }
+
+    const data = item.data || (item.metadata as Record<string, string> | undefined) || {};
+
+    // Deep linking routing
+    switch (item.type) {
+      case 'RIDE_UPDATE': {
+        const rideId = data.bookingId || data.rideId;
+        if (rideId) {
+          router.push(`/(app)/rides/${rideId}` as any);
+        } else {
+          router.push('/(app)/rides' as any);
+        }
+        break;
+      }
+      case 'PAYMENT_UPDATE': {
+        router.push('/(app)/wallet');
+        break;
+      }
+      case 'SUPPORT_UPDATE': {
+        const ticketId = data.ticketId;
+        if (ticketId) {
+          router.push(`/(app)/support/${ticketId}` as any);
+        } else {
+          router.push('/(app)/support/tickets' as any);
+        }
+        break;
+      }
+      case 'PROMO': {
+        router.push('/(app)/rewards' as any);
+        break;
+      }
+      case 'SECURITY': {
+        router.push('/(app)/sessions' as any);
+        break;
+      }
+      default:
+        // No specific deep link
+        break;
     }
   };
 
@@ -62,10 +89,14 @@ export default function NotificationsScreen() {
         return 'pricetag';
       case 'SUPPORT_UPDATE':
         return 'headset';
+      case 'SECURITY':
+        return 'shield-checkmark';
       default:
         return 'notifications';
     }
   };
+
+  const hasUnread = notifications.some((n) => !n.read);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -74,8 +105,8 @@ export default function NotificationsScreen() {
         showBack
         onBack={() => router.back()}
         rightElement={
-          notifications.some((n) => !n.read) ? (
-            <TouchableOpacity onPress={handleMarkAllRead}>
+          hasUnread ? (
+            <TouchableOpacity onPress={markAllAsRead}>
               <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600' }}>
                 Read All
               </Text>
@@ -89,10 +120,14 @@ export default function NotificationsScreen() {
         keyExtractor={(item, index) => item.id || String(index)}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
         renderItem={({ item }) => (
-          <View style={[styles.notifItem, !item.read && styles.notifItemUnread]}>
+          <TouchableOpacity
+            style={[styles.notifItem, !item.read && styles.notifItemUnread]}
+            onPress={() => handleNotificationPress(item)}
+            activeOpacity={0.7}
+          >
             <View style={styles.iconBox}>
               <Ionicons
                 name={getNotifIcon(item.type)}
@@ -117,10 +152,10 @@ export default function NotificationsScreen() {
                 })}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
-          !loading ? (
+          !isLoading ? (
             <EmptyState
               icon="notifications-off-outline"
               title="No notifications"

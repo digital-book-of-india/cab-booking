@@ -1,70 +1,138 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { COLORS, RADIUS, SPACING } from '../constants/colors';
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
   },
-  listContent: {
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xxl * 2,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoBanner: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
+    paddingBottom: 6,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSection: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: 8,
     marginBottom: SPACING.lg,
   },
-  infoText: {
-    fontSize: 13,
-    color: '#92400E',
-    flex: 1,
-    lineHeight: 18,
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.5,
   },
-  contactCountRow: {
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+    marginTop: 6,
+  },
+
+  /* Empty State */
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+    paddingBottom: 60,
+  },
+  iconBoxWrapper: {
+    position: 'relative',
+    marginBottom: SPACING.lg,
+  },
+  blueIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: -1,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    textAlign: 'center',
+    lineHeight: 25,
+  },
+
+  /* Saved Contacts List */
+  listContent: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: 100,
+  },
+  savedHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  contactCountText: {
-    fontSize: 14,
+  savedHeaderTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.text,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  contactLimitText: {
-    fontSize: 12,
+  savedHeaderCount: {
+    fontSize: 13,
+    fontWeight: '600',
     color: COLORS.textSecondary,
   },
   contactCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarBox: {
     width: 44,
     height: 44,
-    borderRadius: RADIUS.full,
-    backgroundColor: '#EEF2FF',
+    borderRadius: 22,
+    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+  },
+  avatarLetter: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   contactDetails: {
     flex: 1,
@@ -72,111 +140,174 @@ export const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: 8,
   },
   contactName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.text,
   },
   contactPhone: {
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
   deleteButton: {
     padding: SPACING.sm,
   },
-  emptyContainer: {
+
+  /* Bottom Action Bar */
+  bottomBar: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  addContactButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.xxl,
   },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginTop: SPACING.md,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  fabButton: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    left: SPACING.lg,
-    right: SPACING.lg,
+  addContactButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 
-  /* Modal Styles */
+  /* Contact Picker Bottom Sheet / Modal (Light Theme) */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
+  pickerSheet: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    paddingBottom: SPACING.xxl,
+    maxHeight: '88%',
+    minHeight: '65%',
+    display: 'flex',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.text,
   },
-  relationshipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
-  pillsRow: {
+  searchContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-    marginBottom: SPACING.lg,
-  },
-  pill: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: RADIUS.md,
+    marginHorizontal: SPACING.lg,
+    marginVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    height: 44,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.background,
   },
-  pillSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#EDE9FE',
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    color: COLORS.text,
+    fontSize: 14,
   },
-  pillText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  pillTextSelected: {
+  pickerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  pickerAvatarText: {
     color: COLORS.primary,
+    fontSize: 15,
     fontWeight: '700',
   },
-  modalActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.sm,
-  },
-  modalButton: {
+  pickerInfo: {
     flex: 1,
+  },
+  pickerName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  pickerPhone: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  alreadyAddedBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  alreadyAddedText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  pickerFooter: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  confirmButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonDisabled: {
+    backgroundColor: COLORS.disabled,
+  },
+  confirmButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  confirmButtonTextDisabled: {
+    color: '#94A3B8',
   },
 });

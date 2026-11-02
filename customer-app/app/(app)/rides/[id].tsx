@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -17,6 +18,7 @@ import { RatingModal } from '../../../src/components/ratings/RatingModal';
 import { COLORS } from '../../../src/constants/colors';
 import { APP_CONFIG } from '../../../src/constants/config';
 import { RidesService } from '../../../src/services/rides.service';
+import { SafetyService } from '../../../src/services/safety.service';
 import { styles } from '../../../src/styles/rideDetail.styles';
 import type { RatingView, RideDetails, RideRatingInput } from '../../../src/types/ride.types';
 
@@ -78,6 +80,44 @@ export default function RideDetailScreen() {
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not resend OTP');
     }
+  };
+
+  const handleShareTrip = async () => {
+    if (!rideId) return;
+    try {
+      const res = await SafetyService.shareTrip(rideId);
+      const trackingUrl = SafetyService.getPublicTrackingUrl(res.token);
+      await Share.share({
+        title: 'Track My Cab Ride',
+        message: `I am riding in a cab. Track my live location in real time: ${trackingUrl}`,
+        url: trackingUrl,
+      });
+    } catch (err) {
+      Alert.alert('Share Error', err instanceof Error ? err.message : 'Could not generate live tracking link');
+    }
+  };
+
+  const handleTriggerSos = () => {
+    if (!rideId) return;
+    Alert.alert(
+      'Trigger Emergency SOS?',
+      'This will alert our 24/7 Safety Operations Desk and send an SMS with your live GPS location to your emergency contacts.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Trigger SOS Alert',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await SafetyService.triggerSos(rideId, 'Rider triggered emergency SOS');
+              Alert.alert('🚨 SOS Alert Dispatched', 'Safety operations team and your emergency contacts have been alerted.');
+            } catch (err) {
+              Alert.alert('SOS Error', err instanceof Error ? err.message : 'Could not trigger SOS. Please dial 112 immediately.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading || !ride) {
@@ -260,6 +300,24 @@ export default function RideDetailScreen() {
 
         {/* Actions */}
         <View style={styles.actionsRow}>
+          {!isCompleted && ride.status !== 'CANCELLED' && (
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  title="Share Live Trip"
+                  variant="outline"
+                  onPress={handleShareTrip}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  title="SOS Alert"
+                  onPress={handleTriggerSos}
+                  style={{ backgroundColor: '#DC2626' }}
+                />
+              </View>
+            </View>
+          )}
           {isCompleted && (
             <>
               <AppButton

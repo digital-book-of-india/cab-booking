@@ -20,26 +20,44 @@ export type TicketCategory =
   | "APP_PROBLEM"
   | "OTHER";
 
+export type TicketPriority = "LOW" | "NORMAL" | "HIGH";
+
+export type TicketOutcome =
+  | "REFUNDED"
+  | "FEE_WAIVED"
+  | "WARNING_ISSUED"
+  | "NO_ACTION"
+  | "ESCALATED"
+  | "OTHER";
+
 export type TicketMessage = {
-  id?: string;
-  senderRole?: "CUSTOMER" | "SUPPORT" | "SYSTEM" | string;
-  senderId?: string;
-  body?: string;
-  text?: string;
-  message?: string;
-  createdAt: string;
+  id: string;
+  by: "USER" | "STAFF";
+  text: string;
+  at: string;
+  internal?: boolean;
 };
 
 export type SupportTicket = {
   id?: string;
-  ticketId?: string;
-  subject: string;
+  ticketId: string;
   category: TicketCategory;
+  subject: string;
   status: TicketStatus;
-  bookingId?: string;
+  priority?: TicketPriority;
+  bookingId?: string | null;
+  outcome?: TicketOutcome | null;
+  resolutionNote?: string | null;
   createdAt: string;
-  updatedAt?: string;
-  messages: TicketMessage[];
+  lastActivityAt?: string;
+  messageCount?: number;
+  lastMessage?: {
+    id?: string;
+    by: "USER" | "STAFF";
+    text: string;
+    at: string;
+  } | null;
+  messages?: TicketMessage[];
 };
 
 export type CreateTicketInput = {
@@ -90,13 +108,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
     iconBg: "#EFF6FF",
     subIssues: [
       {
-        id: "r_1",
-        title: "Driver didn't arrive",
-        backendCategory: "OTHER",
-        actionType: "RIDE_SELECT",
-        requiresRide: true,
-      },
-      {
         id: "r_2",
         title: "Driver asked me to cancel",
         backendCategory: "DRIVER_BEHAVIOUR",
@@ -106,27 +117,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
       {
         id: "r_3",
         title: "Ride was cancelled unexpectedly",
-        backendCategory: "FARE_DISPUTE",
-        actionType: "RIDE_SELECT",
-        requiresRide: true,
-      },
-      {
-        id: "r_4",
-        title: "Incorrect pickup or drop location",
-        backendCategory: "FARE_DISPUTE",
-        actionType: "RIDE_SELECT",
-        requiresRide: true,
-      },
-      {
-        id: "r_5",
-        title: "Charged a cancellation fee",
-        backendCategory: "FARE_DISPUTE",
-        actionType: "RIDE_SELECT",
-        requiresRide: true,
-      },
-      {
-        id: "r_6",
-        title: "Fare was higher than expected",
         backendCategory: "FARE_DISPUTE",
         actionType: "RIDE_SELECT",
         requiresRide: true,
@@ -150,12 +140,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
     iconColor: "#D97706",
     iconBg: "#FEF3C7",
     subIssues: [
-      {
-        id: "p_1",
-        title: "Payment failed",
-        backendCategory: "PAYMENT_ISSUE",
-        actionType: "TICKET",
-      },
       {
         id: "p_2",
         title: "Money deducted but booking failed",
@@ -182,19 +166,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         backendCategory: "PAYMENT_ISSUE",
         actionType: "TICKET",
       },
-      {
-        id: "p_6",
-        title: "Payment receipt or invoice request",
-        backendCategory: "PAYMENT_ISSUE",
-        actionType: "RIDE_SELECT",
-        requiresRide: true,
-      },
-      {
-        id: "p_7",
-        title: "Promo code or discount issue",
-        backendCategory: "PAYMENT_ISSUE",
-        actionType: "TICKET",
-      },
     ],
   },
 
@@ -202,25 +173,11 @@ export const HELP_CATEGORIES: HelpCategory[] = [
   {
     key: "CONTACT",
     title: "Contact Customer Support",
-    subtitle: "Call helpline, live chat, or raise a support ticket",
+    subtitle: "Raise a support ticket or check status",
     icon: "headset",
-    iconColor: "#16A34A",
-    iconBg: "#F0FDF4",
+    iconColor: "#2563EB",
+    iconBg: "#EFF6FF",
     subIssues: [
-      {
-        id: "c_1",
-        title: "Call 24/7 Support Hotline",
-        description: "Toll-free customer assistance",
-        backendCategory: "OTHER",
-        actionType: "CALL",
-      },
-      {
-        id: "c_2",
-        title: "Live chat with a support agent",
-        description: "Instant resolution via support desk",
-        backendCategory: "OTHER",
-        actionType: "CHAT",
-      },
       {
         id: "c_3",
         title: "Create a custom support ticket",
@@ -229,13 +186,7 @@ export const HELP_CATEGORIES: HelpCategory[] = [
       },
       {
         id: "c_4",
-        title: "Track support request status",
-        backendCategory: "OTHER",
-        actionType: "LINK",
-      },
-      {
-        id: "c_5",
-        title: "View previous conversations",
+        title: "View all my tickets",
         backendCategory: "OTHER",
         actionType: "LINK",
       },
@@ -348,12 +299,6 @@ export const HELP_CATEGORIES: HelpCategory[] = [
         id: "o_3",
         title: "Referral reward not received",
         backendCategory: "OTHER",
-        actionType: "TICKET",
-      },
-      {
-        id: "o_4",
-        title: "Cashback or wallet credit missing",
-        backendCategory: "PAYMENT_ISSUE",
         actionType: "TICKET",
       },
     ],

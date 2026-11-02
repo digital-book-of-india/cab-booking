@@ -4,6 +4,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { NotificationProvider } from '../src/context/NotificationContext';
 import { COLORS } from '../src/constants/colors';
 
 function RootNavigationGate() {
@@ -52,8 +53,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="dark" />
-        <RootNavigationGate />
+        <NotificationProvider>
+          <StatusBar style="dark" />
+          <RootNavigationGate />
+        </NotificationProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

@@ -1318,6 +1318,14 @@ export const routes: RouteDoc[] = [
     query: { from: '', to: '' },
   },
   {
+    method: 'get',
+    path: '/coupons/active',
+    tag: 'Coupons',
+    summary: 'Active, eligible promotional offers available for the authenticated rider',
+    auth: ['CUSTOMER'],
+    query: { zoneId: '', categoryId: '' },
+  },
+  {
     method: 'post',
     path: '/admin/coupons',
     tag: 'Coupons',

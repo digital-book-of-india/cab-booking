@@ -29,7 +29,6 @@ export type AuthContextValue = {
   }>;
   verifyOtp: (otp: string, device?: DeviceInfo) => Promise<AuthUser>;
   loginDemoUser: (phone?: string) => Promise<AuthUser>;
-  // Accepts (name, phone) OR (name, email) OR (name, phone, email)
   updateProfile: (
     name: string,
     phoneOrEmail?: string | null,
@@ -41,17 +40,6 @@ export type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const DEMO_USER: AuthUser = {
-  id: "demo-user-101",
-  phone: "+919876543210",
-  role: "CUSTOMER",
-  status: "ACTIVE",
-  profileComplete: true,
-  isNewUser: false,
-  name: "Demo Rider",
-  email: "rider@example.com",
-};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -76,13 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // Demo Mode token restoration
-      if (accessToken === "demo-access-token") {
-        setUser(DEMO_USER);
-        setIsLoading(false);
-        return;
-      }
-
+      // Try fetching profile with existing access token
       if (accessToken) {
         try {
           const profile = await CustomerService.getProfile();
@@ -99,10 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsLoading(false);
           return;
         } catch {
-          // Token might be expired, try refreshing
+          // Token might be expired, fallback to refresh below
         }
       }
 
+      // If accessToken is missing or expired, rotate tokens with refreshToken
       if (refreshToken) {
         try {
           const tokens = await AuthService.refreshTokens({ refreshToken });
@@ -121,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsLoading(false);
           return;
         } catch {
-          // Refresh failed - tokens invalid
+          // Refresh failed - tokens invalid or revoked
           await TokenStorage.clearTokens();
           setUser(null);
         }
@@ -138,140 +121,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     restoreSession();
   }, [restoreSession]);
 
-  /** 1-tap instant Demo Login */
-  const loginDemoUser = useCallback(
-    async (phone?: string): Promise<AuthUser> => {
-      const customDemoUser: AuthUser = {
-        ...DEMO_USER,
-        phone: phone || DEMO_USER.phone,
-      };
-      await TokenStorage.setTokens("demo-access-token", "demo-refresh-token");
-      setUser(customDemoUser);
-      setActiveChallenge(null);
-      return customDemoUser;
-    },
-    []
-  );
-
-  /** Request OTP with automatic Demo Fallback on network timeout */
+  /** Request OTP from backend API */
   const requestOtp = useCallback(async (phone: string) => {
-    try {
-      const res = await AuthService.requestOtp({ phone, purpose: "login" });
-      setActiveChallenge({
-        phone,
-        challengeId: res.challengeId,
-        resendAfterSeconds: res.resendAfterSeconds || 30,
-      });
-      return res;
-    } catch (err) {
-      console.warn(
-        "[AuthContext] Backend request timed out or unreachable. Falling back to Demo Challenge for:",
-        phone,
-        err
-      );
-      const fallbackRes = {
-        challengeId: `demo-challenge-${Date.now()}`,
-        expiresInSeconds: 300,
-        resendAfterSeconds: 30,
-      };
-      setActiveChallenge({
-        phone,
-        challengeId: fallbackRes.challengeId,
-        resendAfterSeconds: 30,
-      });
-      return fallbackRes;
-    }
+    const res = await AuthService.requestOtp({ phone, purpose: "login" });
+    setActiveChallenge({
+      phone,
+      challengeId: res.challengeId,
+      resendAfterSeconds: res.resendAfterSeconds || 30,
+    });
+    return res;
   }, []);
 
-  /** Verify OTP and establish session */
+  /** Verify OTP with backend API and establish authenticated session */
   const verifyOtp = useCallback(
     async (otp: string, device?: DeviceInfo): Promise<AuthUser> => {
       if (!activeChallenge) {
-        throw new Error(
-          "No active OTP request found. Please request an OTP first."
-        );
+        throw new Error("No active OTP request found. Please request an OTP first.");
       }
 
-      // If active challenge is a Demo Challenge or OTP is demo code (123456)
-      if (activeChallenge.challengeId.startsWith("demo-") || otp === "123456") {
-        const demoAuthUser: AuthUser = {
-          id: "demo-user-101",
-          phone: activeChallenge.phone,
-          role: "CUSTOMER",
-          status: "ACTIVE",
-          profileComplete: true,
-          isNewUser: false,
-          name: "Demo Rider",
-          email: "rider@example.com",
-        };
-        await TokenStorage.setTokens("demo-access-token", "demo-refresh-token");
-        setUser(demoAuthUser);
-        setActiveChallenge(null);
-        return demoAuthUser;
-      }
+      const res = await AuthService.verifyOtp({
+        challengeId: activeChallenge.challengeId,
+        phone: activeChallenge.phone,
+        otp,
+        role: "CUSTOMER",
+        device,
+      });
+
+      // Save real cryptographically signed JWT & rotating refresh token
+      await TokenStorage.setTokens(res.accessToken, res.refreshToken);
+
+      let profileName = res.user.name ?? null;
+      let profileEmail = res.user.email ?? null;
 
       try {
-        const res = await AuthService.verifyOtp({
-          challengeId: activeChallenge.challengeId,
-          phone: activeChallenge.phone,
-          otp,
-          role: "CUSTOMER",
-          device,
-        });
-
-        await TokenStorage.setTokens(res.accessToken, res.refreshToken);
-
-        let profileName = null;
-        let profileEmail = null;
-        try {
-          const profile = await CustomerService.getProfile();
-          profileName = profile.name;
-          profileEmail = profile.email;
-        } catch {
-          // use basic user
-        }
-
-        const authUser: AuthUser = {
-          ...res.user,
-          phone: activeChallenge.phone,
-          name: profileName,
-          email: profileEmail,
-        };
-
-        setUser(authUser);
-        setActiveChallenge(null);
-        return authUser;
-      } catch (err) {
-        if (otp === "123456" || otp === "000000") {
-          return loginDemoUser(activeChallenge.phone);
-        }
-        throw err;
+        const profile = await CustomerService.getProfile();
+        if (profile.name) profileName = profile.name;
+        if (profile.email) profileEmail = profile.email;
+      } catch {
+        // use profile from verifyOtp response
       }
+
+      const authUser: AuthUser = {
+        ...res.user,
+        phone: activeChallenge.phone,
+        name: profileName,
+        email: profileEmail,
+        profileComplete: Boolean(profileName),
+      };
+
+      setUser(authUser);
+      setActiveChallenge(null);
+      return authUser;
     },
-    [activeChallenge, loginDemoUser]
+    [activeChallenge]
   );
 
-  /**
-   * Update user profile:
-   * Handles:
-   * - updateProfile(name, phone)       -> updates name & phone
-   * - updateProfile(name, email)       -> updates name & email (backwards-compatible)
-   * - updateProfile(name, phone, email)-> updates all three
-   */
+  /** Dev-only helper for quick testing */
+  const loginDemoUser = useCallback(async (phone?: string): Promise<AuthUser> => {
+    const demoPhone = phone || "+919876543210";
+    const req = await AuthService.requestOtp({ phone: demoPhone, purpose: "login" });
+    const user = await AuthService.verifyOtp({
+      challengeId: req.challengeId,
+      phone: demoPhone,
+      otp: "123456",
+      role: "CUSTOMER",
+    });
+    await TokenStorage.setTokens(user.accessToken, user.refreshToken);
+    const authUser: AuthUser = {
+      ...user.user,
+      phone: demoPhone,
+      profileComplete: Boolean(user.user.name),
+    };
+    setUser(authUser);
+    return authUser;
+  }, []);
+
+  /** Update user profile (name, email) */
   const updateProfile = useCallback(
     async (
       name: string,
       phoneOrEmail?: string | null,
       optionalEmail?: string | null
     ) => {
-      let phone: string | undefined;
       let email: string | null | undefined;
 
-      if (phoneOrEmail) {
-        if (phoneOrEmail.includes("@")) {
+      if (phoneOrEmail !== undefined) {
+        if (phoneOrEmail && phoneOrEmail.includes("@")) {
           email = phoneOrEmail;
-        } else {
-          phone = phoneOrEmail;
+        } else if (phoneOrEmail === null) {
+          email = null;
         }
       }
 
@@ -279,34 +217,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email = optionalEmail;
       }
 
-      try {
-        const updated = await CustomerService.updateProfile({ name, email });
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                name: updated.name || name,
-                phone: phone || updated.phone || prev.phone,
-                email:
-                  email !== undefined ? email : updated.email ?? prev.email,
-                profileComplete: Boolean(name),
-              }
-            : null
-        );
-      } catch {
-        // Fallback for offline / demo mode
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                name,
-                phone: phone || prev.phone,
-                email: email !== undefined ? email : prev.email,
-                profileComplete: Boolean(name),
-              }
-            : null
-        );
-      }
+      const updated = await CustomerService.updateProfile({ name, email });
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name || name,
+              email: email !== undefined ? email : updated.email ?? prev.email,
+              profileComplete: Boolean(name),
+            }
+          : null
+      );
     },
     []
   );

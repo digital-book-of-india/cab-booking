@@ -25,14 +25,37 @@ import type { CustomerProfile } from "../../../src/types/customer.types";
 export type DynamicOffer = {
   id: string;
   code: string;
+  title?: string;
   description: string;
-  discountPaise?: number;
+  type?: 'PERCENT' | 'FLAT';
   percentage?: number;
+  discountPaise?: number;
+  maxDiscountPaise?: number | null;
+  minFarePaise?: number;
   expiresAt?: string;
+  userRemainingUses?: number;
+  icon?: string;
+  badgeColor?: string;
+  badgeBg?: string;
 };
 
+const getOfferIcon = (offer: DynamicOffer): keyof typeof Ionicons.glyphMap => {
+  if (offer.icon && offer.icon in Ionicons.glyphMap) {
+    return offer.icon as keyof typeof Ionicons.glyphMap;
+  }
+  return offer.type === 'PERCENT' ? 'pricetag' : 'gift';
+};
+
+const getOfferColors = (offer: DynamicOffer) => {
+  return {
+    color: offer.badgeColor || (offer.type === 'PERCENT' ? '#7E22CE' : '#2563EB'),
+    bg: offer.badgeBg || (offer.type === 'PERCENT' ? '#FAF5FF' : '#EFF6FF'),
+  };
+};
+
+
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshProfile } = useAuth();
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
   // Modal States
@@ -55,6 +78,23 @@ export default function ProfileScreen() {
   }, []);
 
   // 2. Fetch dynamic active offers from API
+  const handleOfferAction = (offer: DynamicOffer) => {
+    Alert.alert(
+      "Offer Code Ready",
+      `Use code "${offer.code}" on your next ride to get ${offer.title || offer.description}.`,
+      [
+        { text: "Close", style: "cancel" },
+        {
+          text: "Book Ride",
+          onPress: () => {
+            setIsOffersModalVisible(false);
+            router.push("/(app)" as any);
+          },
+        },
+      ]
+    );
+  };
+
   const fetchActiveOffers = async () => {
     setIsOffersModalVisible(true);
     setLoadingOffers(true);
@@ -136,7 +176,13 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={28} color={COLORS.primary} />
+              {displayName && displayName !== "Customer" ? (
+                <Text style={styles.avatarText}>
+                  {displayName.charAt(0).toUpperCase()}
+                </Text>
+              ) : (
+                <Ionicons name="person" size={28} color={COLORS.primary} />
+              )}
             </View>
             <View style={styles.avatarEditBadge}>
               <Ionicons name="pencil" size={11} color={COLORS.white} />
@@ -156,9 +202,9 @@ export default function ProfileScreen() {
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={12} color="#D97706" />
                 <Text style={styles.ratingText}>
-                  {profile?.ratingAverage
+                  {profile?.ratingAverage != null
                     ? profile.ratingAverage.toFixed(1)
-                    : "4.9"}
+                    : "New"}
                 </Text>
               </View>
             </View>
@@ -185,7 +231,7 @@ export default function ProfileScreen() {
           {/* Help */}
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.navigate("/(app)/support" as any)}
+            onPress={() => router.push("/(app)/support")}
             activeOpacity={0.7}
           >
             <View
@@ -199,7 +245,7 @@ export default function ProfileScreen() {
           {/* Wallet */}
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.navigate("/(app)/wallet" as any)}
+            onPress={() => router.push("/(app)/wallet")}
             activeOpacity={0.7}
           >
             <View
@@ -213,7 +259,7 @@ export default function ProfileScreen() {
           {/* Safety */}
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.navigate("/(app)/contacts" as any)}
+            onPress={() => router.push("/(app)/safety" as any)}
             activeOpacity={0.7}
           >
             <View
@@ -248,7 +294,7 @@ export default function ProfileScreen() {
           {/* 1. Family */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/family" as any)}
+            onPress={() => router.push("/(app)/family")}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -304,7 +350,7 @@ export default function ProfileScreen() {
           {/* 3. Contacts */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/contacts" as any)}
+            onPress={() => router.push("/(app)/safety" as any)}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -332,7 +378,7 @@ export default function ProfileScreen() {
           {/* 4. Settings */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/preferences" as any)}
+            onPress={() => router.push("/(app)/preferences")}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -360,7 +406,7 @@ export default function ProfileScreen() {
           {/* 5. Wallets */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/wallet" as any)}
+            onPress={() => router.push("/(app)/wallet")}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -388,7 +434,7 @@ export default function ProfileScreen() {
           {/* 6. Partner Rewards */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/rewards" as any)}
+            onPress={() => router.push("/(app)/rewards")}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -416,7 +462,7 @@ export default function ProfileScreen() {
           {/* 7. Manage Account */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.navigate("/(app)/sessions" as any)}
+            onPress={() => router.push("/(app)/sessions")}
             activeOpacity={0.7}
           >
             <View style={styles.menuItemLeft}>
@@ -475,8 +521,13 @@ export default function ProfileScreen() {
       <EditProfileModal
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)}
-        currentName={displayName}
+        currentName={displayName === "Customer" ? "" : displayName}
         currentPhone={displayPhone}
+        currentEmail={profile?.email || user?.email || ""}
+        onSaveSuccess={() => {
+          loadProfile();
+          refreshProfile();
+        }}
       />
 
       {/* ========================================================
@@ -515,28 +566,72 @@ export default function ProfileScreen() {
                     style={{ marginVertical: 32 }}
                   />
                 ) : offers.length > 0 ? (
-                  <ScrollView style={{ maxHeight: 320 }}>
-                    {offers.map((offer) => (
-                      <View
-                        key={offer.id || offer.code}
-                        style={styles.offerCard}
-                      >
-                        <View style={styles.offerIconBox}>
-                          <Ionicons name="pricetag" size={20} color="#7E22CE" />
+                  <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                    {offers.map((offer) => {
+                      const iconName = getOfferIcon(offer);
+                      const { color, bg } = getOfferColors(offer);
+
+                      return (
+                        <View
+                          key={offer.id || offer.code}
+                          style={[styles.offerCard, { borderColor: color + '33' }]}
+                        >
+                          <View style={[styles.offerIconBox, { backgroundColor: bg }]}>
+                            <Ionicons name={iconName} size={22} color={color} />
+                          </View>
+                          <View style={styles.offerInfo}>
+                            <View style={styles.offerTitleRow}>
+                              <Text style={[styles.offerCode, { color }]}>
+                                {offer.code}
+                              </Text>
+                              {offer.title ? (
+                                <View style={[styles.offerBadge, { backgroundColor: bg }]}>
+                                  <Text style={[styles.offerBadgeText, { color }]}>
+                                    {offer.title}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
+
+                            <Text style={styles.offerDesc}>{offer.description}</Text>
+
+                            <View style={styles.offerMetaRow}>
+                              {offer.minFarePaise && offer.minFarePaise > 0 ? (
+                                <Text style={styles.offerMetaText}>
+                                  Min fare ₹{(offer.minFarePaise / 100).toFixed(0)}
+                                </Text>
+                              ) : null}
+                              {offer.userRemainingUses !== undefined ? (
+                                <Text style={styles.offerMetaText}>
+                                  {offer.userRemainingUses === 1
+                                    ? '1 use left'
+                                    : `${offer.userRemainingUses} uses left`}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+
+                          <TouchableOpacity
+                            style={[styles.useCodeBtn, { borderColor: color, backgroundColor: bg }]}
+                            onPress={() => handleOfferAction(offer)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.useCodeBtnText, { color }]}>Apply</Text>
+                          </TouchableOpacity>
                         </View>
-                        <View style={styles.offerInfo}>
-                          <Text style={styles.offerCode}>{offer.code}</Text>
-                          <Text style={styles.offerDesc}>
-                            {offer.description}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </ScrollView>
                 ) : (
-                  <Text style={styles.emptyOffersText}>
-                    No promotions or discount offers available right now.
-                  </Text>
+                  <View style={styles.emptyOffersContainer}>
+                    <View style={styles.emptyOffersIconBox}>
+                      <Ionicons name="pricetag-outline" size={26} color={COLORS.textSecondary} />
+                    </View>
+                    <Text style={styles.emptyOffersTitle}>No Active Offers</Text>
+                    <Text style={styles.emptyOffersText}>
+                      There are no promotional discounts available in your area right now. Check back soon for new ride offers!
+                    </Text>
+                  </View>
                 )}
               </View>
             </TouchableWithoutFeedback>

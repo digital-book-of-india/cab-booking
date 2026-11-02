@@ -51,6 +51,9 @@ export const createCouponSchema = z
     perUserLimit: z.number().int().min(1).max(1000).default(1),
     zoneIds: z.array(objectId).max(50).default([]),
     categoryIds: z.array(objectId).max(50).default([]),
+    icon: z.string().trim().max(50).optional(),
+    badgeColor: z.string().trim().max(30).optional(),
+    badgeBg: z.string().trim().max(30).optional(),
   })
   .strict()
   .refine((v) => v.validTo.getTime() > v.validFrom.getTime(), {
@@ -61,15 +64,20 @@ export const createCouponSchema = z
     message: 'A percent coupon is at most 100% (10000)',
     path: ['value'],
   });
+
 export const updateCouponSchema = z
   .object({
     active: z.boolean().optional(),
     validTo: z.coerce.date().optional(),
     maxRedemptions: z.number().int().min(1).max(10_000_000).optional(),
     description: z.string().trim().max(200).optional(),
+    icon: z.string().trim().max(50).optional(),
+    badgeColor: z.string().trim().max(30).optional(),
+    badgeBg: z.string().trim().max(30).optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'nothing to change' });
+
 export const couponListQuerySchema = paginationSchema.extend({
   active: z
     .enum(['true', 'false'])
@@ -77,9 +85,15 @@ export const couponListQuerySchema = paginationSchema.extend({
     .optional(),
 });
 
+export const activeOffersQuerySchema = z.object({
+  zoneId: objectId.optional(),
+  categoryId: objectId.optional(),
+});
+
 export type CreateCouponInput = z.infer<typeof createCouponSchema>;
 export type UpdateCouponInput = z.infer<typeof updateCouponSchema>;
 export type CouponListQuery = z.infer<typeof couponListQuerySchema>;
+export type ActiveOffersQuery = z.infer<typeof activeOffersQuerySchema>;
 
 /** What a quote and a booking keep of the coupon: the rule as it was when the rider saw the price. */
 export type CouponSnapshot = {
@@ -118,6 +132,9 @@ export function createCouponsService(deps: {
     zoneIds: { toString(): string }[];
     categoryIds: { toString(): string }[];
     redemptionsCount: number;
+    icon?: string | null;
+    badgeColor?: string | null;
+    badgeBg?: string | null;
   }) => ({
     id: c._id.toString(),
     code: c.code,
@@ -134,6 +151,9 @@ export function createCouponsService(deps: {
     zoneIds: c.zoneIds.map(String),
     categoryIds: c.categoryIds.map(String),
     redemptionsCount: c.redemptionsCount,
+    icon: c.icon ?? null,
+    badgeColor: c.badgeColor ?? null,
+    badgeBg: c.badgeBg ?? null,
   });
 
   return {
@@ -192,6 +212,86 @@ export function createCouponsService(deps: {
         minFarePaise: c.minFarePaise ?? 0,
       };
       return { snapshot, discountPaise: computeDiscount(snapshot, input.estimatedFarePaise) };
+    },
+
+    /**
+     * Active, non-expired offers available for this rider.
+     * Enforces date validity, global redemptions, and rider's personal usage limits.
+     */
+    async listActiveForRider(
+      role: Actor['role'],
+      userId: string,
+      query?: ActiveOffersQuery,
+    ) {
+      await flags.assertEnabled('COUPONS', role);
+      const t = now();
+      const conditions: Record<string, unknown> = {
+        active: true,
+        validFrom: { $lte: t },
+        validTo: { $gte: t },
+        $or: [
+          { maxRedemptions: { $exists: false } },
+          { maxRedemptions: null },
+          { $expr: { $lt: ['$redemptionsCount', '$maxRedemptions'] } },
+        ],
+      };
+
+      if (query?.zoneId) {
+        conditions.$and = conditions.$and || [];
+        (conditions.$and as unknown[]).push({
+          $or: [{ zoneIds: { $size: 0 } }, { zoneIds: query.zoneId }],
+        });
+      }
+      if (query?.categoryId) {
+        conditions.$and = conditions.$and || [];
+        (conditions.$and as unknown[]).push({
+          $or: [{ categoryIds: { $size: 0 } }, { categoryIds: query.categoryId }],
+        });
+      }
+
+      const activeCoupons = await Coupon.find(conditions).sort({ createdAt: -1 }).lean();
+      if (activeCoupons.length === 0) return [];
+
+      const couponIds = activeCoupons.map((c) => c._id);
+      const usages = await CouponUsage.find({ couponId: { $in: couponIds }, userId }).lean();
+      const usageMap = new Map<string, number>();
+      for (const u of usages) {
+        usageMap.set(u.couponId.toString(), u.count);
+      }
+
+      return activeCoupons
+        .filter((c) => (usageMap.get(c._id.toString()) ?? 0) < c.perUserLimit)
+        .map((c) => {
+          const used = usageMap.get(c._id.toString()) ?? 0;
+          const remainingUses = Math.max(0, c.perUserLimit - used);
+          const isPercent = c.type === 'PERCENT';
+          const discountPercent = isPercent ? c.value / 100 : undefined;
+          const formattedTitle = isPercent
+            ? `${discountPercent}% OFF${c.maxDiscountPaise ? ` up to ₹${(c.maxDiscountPaise / 100).toFixed(0)}` : ''}`
+            : `Flat ₹${(c.value / 100).toFixed(0)} OFF`;
+
+          return {
+            id: c._id.toString(),
+            code: c.code,
+            title: formattedTitle,
+            description:
+              c.description ||
+              (isPercent
+                ? `Get ${discountPercent}% discount on your ride fare.`
+                : `Save ₹${(c.value / 100).toFixed(0)} on your ride fare.`),
+            type: c.type,
+            value: c.value,
+            percentage: discountPercent,
+            discountPaise: isPercent ? undefined : c.value,
+            maxDiscountPaise: c.maxDiscountPaise ?? null,
+            minFarePaise: c.minFarePaise ?? 0,
+            expiresAt: c.validTo.toISOString(),
+            userRemainingUses: remainingUses,
+            icon: c.icon || (isPercent ? 'pricetag' : 'gift'),
+            badgeColor: c.badgeColor || (isPercent ? '#7E22CE' : '#2563EB'),
+            badgeBg: c.badgeBg || (isPercent ? '#FAF5FF' : '#EFF6FF'),
+          };
+        });
     },
 
     /**

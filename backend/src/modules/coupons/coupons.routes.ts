@@ -6,17 +6,31 @@ import { objectId } from '../../common/zod';
 import { requireRole } from '../../middleware/auth';
 import type { ModuleContext } from '../../context';
 import {
+  activeOffersQuerySchema,
   couponListQuerySchema,
   createCouponSchema,
   updateCouponSchema,
   type CouponsService,
 } from './coupons.service';
 
-/** Promotion codes: configuration staff only. Riders use a code by sending it with a fare quote. */
 export function couponsRouter(ctx: ModuleContext, coupons: CouponsService): Router {
   const r = Router();
   const admin = [ctx.authenticate, requireRole(...CONFIG_ROLES)];
 
+  // Customer/Rider: list active, eligible promotional offers
+  r.get(
+    '/coupons/active',
+    ctx.authenticate,
+    h(async (req) => {
+      const actor = actorFrom(req);
+      const query = activeOffersQuerySchema.parse(req.query);
+      return {
+        data: await coupons.listActiveForRider(actor.role, actor.userId, query),
+      };
+    }),
+  );
+
+  // Configuration staff / Admin management
   r.post(
     '/admin/coupons',
     ...admin,

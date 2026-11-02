@@ -5,7 +5,6 @@ import {
   Pressable,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,9 +27,8 @@ export default function LoginScreen() {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
 
-  const { requestOtp, loginDemoUser } = useAuth();
+  const { requestOtp } = useAuth();
 
   const handleCountrySelect = (country: Country) => {
     setCountryCode(country.cca2);
@@ -63,35 +61,23 @@ export default function LoginScreen() {
     try {
       setError(null);
       setLoading(true);
-      // requestOtp will automatically fall back to demo challenge if backend is unreachable
-      await requestOtp(fullPhone);
+      const res = await requestOtp(fullPhone);
       router.push({
         pathname: '/(auth)/otp',
-        params: { phone: fullPhone },
+        params: {
+          phone: fullPhone,
+          challengeId: res.challengeId,
+          resendAfterSeconds: String(res.resendAfterSeconds || 30),
+        },
       });
     } catch (err) {
-      // In case of unexpected issue, directly take to OTP screen
-      router.push({
-        pathname: '/(auth)/otp',
-        params: { phone: fullPhone },
-      });
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not send verification code. Please check your connection.',
+      );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    try {
-      setDemoLoading(true);
-      setError(null);
-      const cleanDigits = phone.replace(/\D/g, '');
-      const customPhone = cleanDigits.length === 10 ? `+${callingCode}${cleanDigits}` : undefined;
-      await loginDemoUser(customPhone);
-      router.replace('/(app)');
-    } catch (err) {
-      setError('Demo login failed. Please try again.');
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -106,7 +92,7 @@ export default function LoginScreen() {
         style={styles.keyboardAvoid}
       >
         <View>
-          {/* Top Bar with Back Button & Demo Pill */}
+          {/* Top Bar with Back Button */}
           <View style={styles.topBar}>
             <Pressable
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
@@ -116,11 +102,6 @@ export default function LoginScreen() {
             >
               <Ionicons name="chevron-back" size={24} color={COLORS.text} />
             </Pressable>
-
-            <View style={styles.demoPill}>
-              <Ionicons name="flash" size={14} color="#1E40AF" />
-              <Text style={styles.demoPillText}>Demo Mode Enabled</Text>
-            </View>
           </View>
 
           {/* Form Content */}
@@ -195,7 +176,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Footer Actions */}
+        {/* Footer Action */}
         <View style={styles.footer}>
           <AppButton
             title="Continue"
@@ -203,24 +184,6 @@ export default function LoginScreen() {
             loading={loading}
             disabled={isButtonDisabled}
           />
-
-          <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.orLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.demoLoginBtn}
-            onPress={handleDemoLogin}
-            disabled={demoLoading}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="flash" size={18} color="#15803D" />
-            <Text style={styles.demoLoginBtnText}>
-              {demoLoading ? 'Signing in...' : '⚡ Instant Demo Login (Skip OTP)'}
-            </Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

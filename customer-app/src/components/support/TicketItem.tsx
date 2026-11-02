@@ -14,8 +14,9 @@ const getStatusBadge = (status?: TicketStatus): { label: string; variant: BadgeV
     case 'OPEN':
       return { label: 'Open', variant: 'warning' };
     case 'IN_PROGRESS':
-    case 'WAITING_USER':
       return { label: 'In Progress', variant: 'info' };
+    case 'WAITING_USER':
+      return { label: 'Waiting for You', variant: 'warning' };
     case 'RESOLVED':
       return { label: 'Resolved', variant: 'success' };
     case 'CLOSED':
@@ -28,8 +29,9 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
   const badge = getStatusBadge(ticket.status);
   let formattedDate = '';
   try {
-    if (ticket.createdAt) {
-      formattedDate = new Date(ticket.createdAt).toLocaleDateString('en-IN', {
+    const rawDate = ticket.lastActivityAt || ticket.createdAt;
+    if (rawDate) {
+      formattedDate = new Date(rawDate).toLocaleDateString('en-IN', {
         day: 'numeric',
         month: 'short',
       });
@@ -38,13 +40,21 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
     formattedDate = '';
   }
 
-  const lastMsg =
-    ticket.messages && ticket.messages.length > 0
-      ? ticket.messages[ticket.messages.length - 1].text ||
-        ticket.messages[ticket.messages.length - 1].body ||
-        ticket.messages[ticket.messages.length - 1].message ||
-        'No messages yet'
-      : 'No messages yet';
+  // Determine snippet to show
+  let previewSnippet = 'Conversation active';
+  if (ticket.lastMessage) {
+    previewSnippet =
+      (ticket.lastMessage.by === 'STAFF' ? 'Support: ' : 'You: ') + ticket.lastMessage.text;
+  } else if (ticket.messages && ticket.messages.length > 0) {
+    const last = ticket.messages[ticket.messages.length - 1];
+    previewSnippet = (last.by === 'STAFF' ? 'Support: ' : 'You: ') + last.text;
+  } else if (typeof ticket.messageCount === 'number' && ticket.messageCount > 0) {
+    previewSnippet = `${ticket.messageCount} message${ticket.messageCount > 1 ? 's' : ''} in conversation`;
+  } else if (ticket.resolutionNote) {
+    previewSnippet = `Resolution: ${ticket.resolutionNote}`;
+  } else {
+    previewSnippet = 'Waiting for support agent assignment';
+  }
 
   const id = ticket.ticketId || ticket.id || '';
   const categoryLabel = (ticket.category || 'SUPPORT').replace(/_/g, ' ');
@@ -56,7 +66,21 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
       activeOpacity={0.7}
     >
       <View style={styles.header}>
-        <Text style={styles.ticketId}>#{id ? id.slice(-6).toUpperCase() : 'TICKET'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.ticketId}>#{id ? id.slice(-6).toUpperCase() : 'TICKET'}</Text>
+          {ticket.priority === 'HIGH' && (
+            <View
+              style={{
+                backgroundColor: '#FEF2F2',
+                borderRadius: 4,
+                paddingHorizontal: 5,
+                paddingVertical: 1,
+              }}
+            >
+              <Text style={{ fontSize: 10, color: '#DC2626', fontWeight: '700' }}>PRIORITY</Text>
+            </View>
+          )}
+        </View>
         <Badge label={badge.label} variant={badge.variant} />
       </View>
 
@@ -65,11 +89,18 @@ export const TicketItem: React.FC<TicketItemProps> = ({ ticket, onPress }) => {
       </Text>
 
       <Text style={styles.lastMessage} numberOfLines={2}>
-        {lastMsg}
+        {previewSnippet}
       </Text>
 
       <View style={styles.footer}>
-        <Text style={styles.category}>{categoryLabel}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={styles.category}>{categoryLabel}</Text>
+          {ticket.bookingId && (
+            <Text style={[styles.category, { color: '#64748B' }]}>
+              • Ride #{ticket.bookingId.slice(-6).toUpperCase()}
+            </Text>
+          )}
+        </View>
         <Text style={styles.date}>{formattedDate}</Text>
       </View>
     </TouchableOpacity>
