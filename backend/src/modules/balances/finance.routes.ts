@@ -112,6 +112,11 @@ export function financeRouter(
     ...customer,
     h(async (req) => ({ data: await s.balances.customerBalance(uid(req)) })),
   );
+  r.get(
+    '/customers/me/outstanding',
+    ...customer,
+    h(async (req) => ({ data: await s.balances.customerBalance(uid(req)) })),
+  );
 
   if (s.devPayments) {
     r.post(

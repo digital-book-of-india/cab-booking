@@ -12,6 +12,7 @@ export type CustomerBalance = {
   currency: string;
   unpaidPaise: number;
   outstandingBalancePaise?: number;
+  totalOutstandingPaise?: number;
   blocked?: boolean;
   items?: {
     bookingId: string;
@@ -20,6 +21,7 @@ export type CustomerBalance = {
     paymentStatus: string;
     overdue: boolean;
     payable: boolean;
+    since?: string | null;
   }[];
 };
 

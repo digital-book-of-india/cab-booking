@@ -29,12 +29,12 @@ function resolveBaseUrl(): string {
   }
 
   // 2. Fallback to computer's LAN IP on Wi-Fi
-  return 'http://172.28.120.181:4000/api/v1';
+  return 'http://10.253.74.181:4000/api/v1';
 }
 
 export const API_CONFIG = {
   baseURL: resolveBaseUrl(),
-  timeout: 4000,
+  timeout: 15000,
 } as const;
 
 export const APP_CONFIG = {

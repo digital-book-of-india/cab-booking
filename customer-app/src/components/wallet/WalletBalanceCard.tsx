@@ -10,6 +10,7 @@ export type WalletBalanceCardProps = {
   ridePaymentsPaise?: number;
   outstandingBalancePaise?: number;
   onTopupPress: () => void;
+  onDuesPress?: () => void;
 };
 
 export const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
@@ -18,6 +19,7 @@ export const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
   ridePaymentsPaise = 0,
   outstandingBalancePaise = 0,
   onTopupPress,
+  onDuesPress,
 }) => {
   const balanceRupees = (balancePaise / 100).toFixed(2);
   const addedRupees = (totalAddedPaise / 100).toFixed(2);
@@ -68,13 +70,18 @@ export const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
 
       {/* Outstanding Dues warning if any */}
       {outstandingBalancePaise > 0 && (
-        <View style={styles.duesBanner}>
+        <TouchableOpacity
+          style={styles.duesBanner}
+          onPress={onDuesPress}
+          activeOpacity={0.8}
+        >
           <Ionicons name="alert-circle" size={16} color="#F87171" />
           <Text style={styles.duesBannerText}>
             Unpaid Dues: {APP_CONFIG.currencySymbol}
-            {duesRupees}
+            {duesRupees} (Tap to pay)
           </Text>
-        </View>
+          <Ionicons name="chevron-forward" size={14} color="#F87171" />
+        </TouchableOpacity>
       )}
 
       {/* Add Money Button */}

@@ -1,397 +1,138 @@
 import { apiRequest } from './api';
-
 import { AppStorage } from './storage';
-
 import type {
-
   AddContactInput,
-
   CreateSavedPlaceInput,
-
   CustomerPreferences,
-
   CustomerProfile,
-
   SavedPlace,
-
   TrustedContact,
-
   UpdateCustomerInput,
-
   UpdateSavedPlaceInput,
-
 } from '../types/customer.types';
 
 const PREFERENCES_KEY = 'customer_app_preferences';
 
 const DEFAULT_PREFERENCES: CustomerPreferences = {
-
   quietRide: false,
-
   autoShareTrips: false,
-
   temperaturePreference: 'MILD',
-
   defaultPaymentMethod: 'WALLET',
-
 };
 
 let cachedPreferences: CustomerPreferences = { ...DEFAULT_PREFERENCES };
 
-// In-memory demo data
-
-let demoPlaces: SavedPlace[] = [
-
-  {
-
-    id: 'place_demo_home',
-
-    customerId: 'demo-user-101',
-
-    name: 'Home',
-
-    type: 'home',
-
-    address: '24, Green Park Extension, New Delhi',
-
-    lat: 28.5589,
-
-    lng: 77.2028,
-
-    createdAt: new Date().toISOString(),
-
-    updatedAt: new Date().toISOString(),
-
-  },
-
-  {
-
-    id: 'place_demo_work',
-
-    customerId: 'demo-user-101',
-
-    name: 'Office HQ',
-
-    type: 'work',
-
-    address: 'DLF Cyber City, Building 10, Gurugram',
-
-    lat: 28.4907,
-
-    lng: 77.0878,
-
-    createdAt: new Date().toISOString(),
-
-    updatedAt: new Date().toISOString(),
-
-  },
-
-];
-
-let demoContacts: TrustedContact[] = [
-
-  {
-
-    id: 'contact_demo_1',
-
-    name: 'Rohan Verma',
-
-    phone: '+919876543210',
-
-    relationship: 'Sibling',
-
-  },
-
-  {
-
-    id: 'contact_demo_2',
-
-    name: 'Papa',
-
-    phone: '+919811122233',
-
-    relationship: 'Parent',
-
-  },
-
-];
-
-let demoProfile: CustomerProfile = {
-
-  id: 'demo-user-101',
-
-  phone: '+919876543210',
-
-  name: 'Demo Rider',
-
-  email: 'rider@example.com',
-
-  accountStatus: 'ACTIVE',
-
-  createdAt: new Date().toISOString(),
-
-};
-
 export const CustomerService = {
-
-  /** Fetch the customer's full profile */
-
+  /**
+   * Fetch the customer's full profile from GET /api/v1/customers/me
+   * Returns live MongoDB customer and user profile.
+   */
   async getProfile(): Promise<CustomerProfile> {
-
-    try {
-
-      return await apiRequest<CustomerProfile>('customers/me');
-
-    } catch {
-
-      return { ...demoProfile };
-
-    }
-
+    return apiRequest<CustomerProfile>('customers/me');
   },
 
-  /** Update profile name or email */
-
+  /**
+   * Update profile name or email via PATCH /api/v1/customers/me
+   */
   async updateProfile(input: UpdateCustomerInput): Promise<CustomerProfile> {
-
-    try {
-
-      return await apiRequest<CustomerProfile>('customers/me', {
-
-        method: 'PATCH',
-
-        body: input,
-
-      });
-
-    } catch {
-
-      demoProfile = {
-
-        ...demoProfile,
-
-        name: input.name !== undefined ? input.name : demoProfile.name,
-
-        email: input.email !== undefined ? input.email : demoProfile.email,
-
-      };
-
-      return { ...demoProfile };
-
-    }
-
+    return apiRequest<CustomerProfile>('customers/me', {
+      method: 'PATCH',
+      body: input,
+    });
   },
 
-  /** List all saved places (home, work, other) */
-
+  /**
+   * List all saved places (home, work, other) via GET /api/v1/customers/me/places
+   */
   async listSavedPlaces(): Promise<SavedPlace[]> {
-
-    try {
-
-      return await apiRequest<SavedPlace[]>('customers/me/places');
-
-    } catch {
-
-      return [...demoPlaces];
-
-    }
-
+    const res = await apiRequest<SavedPlace[]>('customers/me/places');
+    return Array.isArray(res) ? res : [];
   },
 
-  /** Create a new saved place */
-
+  /**
+   * Create a new saved place via POST /api/v1/customers/me/places
+   */
   async createSavedPlace(input: CreateSavedPlaceInput): Promise<SavedPlace> {
-
-    try {
-
-      return await apiRequest<SavedPlace>('customers/me/places', {
-
-        method: 'POST',
-
-        body: input,
-
-      });
-
-    } catch {
-
-      const newPlace: SavedPlace = {
-
-        id: `place_demo_${Date.now()}`,
-
-        customerId: 'demo-user-101',
-
-        name: input.name,
-
-        type: input.type,
-
-        address: input.address,
-
-        lat: input.lat,
-
-        lng: input.lng,
-
-        createdAt: new Date().toISOString(),
-
-        updatedAt: new Date().toISOString(),
-
-      };
-
-      demoPlaces.push(newPlace);
-
-      return newPlace;
-
-    }
-
-  },
-
-  /** Update an existing saved place */
-
-  async updateSavedPlace(
-
-    placeId: string,
-
-    input: UpdateSavedPlaceInput,
-
-  ): Promise<SavedPlace> {
-
-    try {
-
-      return await apiRequest<SavedPlace>(`customers/me/places/${placeId}`, {
-
-        method: 'PATCH',
-
-        body: input,
-
-      });
-
-    } catch {
-
-      const idx = demoPlaces.findIndex((p) => p.id === placeId);
-
-      if (idx !== -1) {
-
-        demoPlaces[idx] = { ...demoPlaces[idx], ...input, updatedAt: new Date().toISOString() };
-
-        return demoPlaces[idx];
-
-      }
-
-      return {
-
-        id: placeId,
-
-        customerId: 'demo-user-101',
-
-        name: input.name || 'Saved Place',
-
-        type: input.type || 'other',
-
-        address: input.address || '',
-
-        lat: input.lat || 28.6139,
-
-        lng: input.lng || 77.209,
-
-        createdAt: new Date().toISOString(),
-
-        updatedAt: new Date().toISOString(),
-
-      };
-
-    }
-
-  },
-
-  /** Delete a saved place */
-
-  async deleteSavedPlace(placeId: string): Promise<{ deleted: boolean }> {
-
-    try {
-
-      return await apiRequest<{ deleted: boolean }>(`customers/me/places/${placeId}`, {
-
-        method: 'DELETE',
-
-      });
-
-    } catch {
-
-      demoPlaces = demoPlaces.filter((p) => p.id !== placeId);
-
-      return { deleted: true };
-
-    }
-
-  },
-
-    /** List saved trusted/emergency contacts (up to 3) */
-  async listTrustedContacts(): Promise<TrustedContact[]> {
-    try {
-      const res = await apiRequest<TrustedContact[]>('me/emergency-contacts');
-      return Array.isArray(res) ? res : [];
-    } catch {
-      return [];
-    }
-  },
-
-  /** Add a new trusted/emergency contact */
-  async addTrustedContact(input: AddContactInput): Promise<TrustedContact> {
-    return await apiRequest<TrustedContact>('me/emergency-contacts', {
+    return apiRequest<SavedPlace>('customers/me/places', {
       method: 'POST',
       body: input,
     });
   },
 
-  /** Remove a saved trusted/emergency contact */
-  async deleteTrustedContact(contactId: string): Promise<{ removed: boolean }> {
-    return await apiRequest<{ removed: boolean }>(`me/emergency-contacts/${contactId}`, {
+  /**
+   * Update an existing saved place via PATCH /api/v1/customers/me/places/:placeId
+   */
+  async updateSavedPlace(
+    placeId: string,
+    input: UpdateSavedPlaceInput,
+  ): Promise<SavedPlace> {
+    return apiRequest<SavedPlace>(`customers/me/places/${placeId}`, {
+      method: 'PATCH',
+      body: input,
+    });
+  },
+
+  /**
+   * Delete a saved place via DELETE /api/v1/customers/me/places/:placeId
+   */
+  async deleteSavedPlace(placeId: string): Promise<{ id?: string; deleted: boolean }> {
+    return apiRequest<{ id?: string; deleted: boolean }>(`customers/me/places/${placeId}`, {
       method: 'DELETE',
     });
   },
 
-  /** Get customer preferences (ride, safety, payment) */
+  /**
+   * List saved trusted/emergency contacts via GET /api/v1/me/emergency-contacts
+   */
+  async listTrustedContacts(): Promise<TrustedContact[]> {
+    const res = await apiRequest<TrustedContact[]>('me/emergency-contacts');
+    return Array.isArray(res) ? res : [];
+  },
 
+  /**
+   * Add a new trusted/emergency contact via POST /api/v1/me/emergency-contacts
+   */
+  async addTrustedContact(input: AddContactInput): Promise<TrustedContact> {
+    return apiRequest<TrustedContact>('me/emergency-contacts', {
+      method: 'POST',
+      body: input,
+    });
+  },
+
+  /**
+   * Remove a saved trusted/emergency contact via DELETE /api/v1/me/emergency-contacts/:contactId
+   */
+  async deleteTrustedContact(contactId: string): Promise<{ removed: boolean }> {
+    return apiRequest<{ removed: boolean }>(`me/emergency-contacts/${contactId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Get customer client-side ride preferences (temperature, quiet ride, payment method)
+   */
   async getPreferences(): Promise<CustomerPreferences> {
-
     try {
-
       const stored = await AppStorage.getItem(PREFERENCES_KEY);
-
       if (stored) {
-
         cachedPreferences = { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
-
       }
-
     } catch {
-
-      // ignore
-
+      // fallback to cached defaults
     }
-
     return cachedPreferences;
-
   },
 
-  /** Save customer preferences */
-
+  /**
+   * Save customer client-side ride preferences to persistent local storage
+   */
   async updatePreferences(prefs: Partial<CustomerPreferences>): Promise<CustomerPreferences> {
-
     cachedPreferences = { ...cachedPreferences, ...prefs };
-
     try {
-
       await AppStorage.setItem(PREFERENCES_KEY, JSON.stringify(cachedPreferences));
-
     } catch {
-
-      // ignore
-
+      // ignore write error
     }
-
     return cachedPreferences;
-
   },
-
 };
-

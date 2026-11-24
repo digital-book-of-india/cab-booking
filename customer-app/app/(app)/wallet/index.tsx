@@ -17,6 +17,7 @@ import { RewardsSection } from '../../../src/components/wallet/RewardsSection';
 import { TransactionDetailModal } from '../../../src/components/wallet/TransactionDetailModal';
 import { TransactionHistoryList } from '../../../src/components/wallet/TransactionHistoryList';
 import { WalletBalanceCard } from '../../../src/components/wallet/WalletBalanceCard';
+import { PayDuesModal } from '../../../src/components/payment/PayDuesModal';
 import { PaymentService } from '../../../src/services/payment.service';
 import { styles } from '../../../src/styles/wallet.styles';
 import type {
@@ -42,6 +43,7 @@ export default function WalletScreen() {
   const [activeTab, setActiveTab] = useState<WalletTab>('TXNS');
   const [refreshing, setRefreshing] = useState(false);
   const [topupModalVisible, setTopupModalVisible] = useState(false);
+  const [duesModalVisible, setDuesModalVisible] = useState(false);
   const [topupLoading, setTopupLoading] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<WalletEntry | null>(null);
 
@@ -158,6 +160,7 @@ export default function WalletScreen() {
             balance?.outstandingBalancePaise ?? balance?.unpaidPaise ?? 0
           }
           onTopupPress={() => setTopupModalVisible(true)}
+          onDuesPress={() => setDuesModalVisible(true)}
         />
 
         {/* 2. Segmented Navigation Tab Bar */}
@@ -267,6 +270,15 @@ export default function WalletScreen() {
         onSubmit={handleTopupSubmit}
         limits={wallet?.limits}
         currentBalancePaise={wallet?.balancePaise ?? 0}
+      />
+
+      {/* Outstanding Dues Pay Sheet */}
+      <PayDuesModal
+        visible={duesModalVisible}
+        onClose={() => setDuesModalVisible(false)}
+        balance={balance}
+        walletBalancePaise={wallet?.balancePaise ?? 0}
+        onPaidSuccess={loadData}
       />
 
       {/* Transaction Detail & Digital Receipt Modal */}

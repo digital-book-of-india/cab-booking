@@ -11,6 +11,7 @@ import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RideBookingModal } from "../../src/components/home/RideBookingModal";
 import { ServiceCategories } from "../../src/components/home/ServiceCategories";
+import { PayDuesModal } from "../../src/components/payment/PayDuesModal";
 import { COLORS } from "../../src/constants/colors";
 import { useAuth } from "../../src/context/AuthContext";
 import { useNotifications } from "../../src/context/NotificationContext";
@@ -30,6 +31,7 @@ export default function HomeScreen() {
 
   // Booking Modal State
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [payDuesModalVisible, setPayDuesModalVisible] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState("cab_go");
 
@@ -168,15 +170,23 @@ export default function HomeScreen() {
         {outstandingPaise > 0 && (
           <TouchableOpacity
             style={styles.alertCard}
-            onPress={() => router.push("/(app)/wallet")}
+            onPress={() => setPayDuesModalVisible(true)}
             activeOpacity={0.8}
           >
-            <Ionicons name="alert-circle" size={22} color={COLORS.error} />
+            <Ionicons
+              name="alert-circle"
+              size={22}
+              color={balance?.blocked ? "#DC2626" : COLORS.error}
+            />
             <View style={{ flex: 1 }}>
-              <Text style={styles.alertTitle}>Pending Ride Dues</Text>
+              <Text style={styles.alertTitle}>
+                {balance?.blocked
+                  ? "Account Restricted (Overdue Dues)"
+                  : "Pending Ride Dues"}
+              </Text>
               <Text style={styles.alertDesc}>
                 You have an outstanding balance of ₹
-                {(outstandingPaise / 100).toFixed(2)}.
+                {(outstandingPaise / 100).toFixed(2)}. Tap to pay now.
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={COLORS.error} />
@@ -203,6 +213,15 @@ export default function HomeScreen() {
         initialDestination={selectedDestination}
         initialServiceId={selectedServiceId}
         walletBalancePaise={wallet?.balancePaise ?? 125000}
+      />
+
+      {/* Outstanding Dues Settlement Sheet */}
+      <PayDuesModal
+        visible={payDuesModalVisible}
+        onClose={() => setPayDuesModalVisible(false)}
+        balance={balance}
+        walletBalancePaise={wallet?.balancePaise ?? 0}
+        onPaidSuccess={loadData}
       />
     </SafeAreaView>
   );

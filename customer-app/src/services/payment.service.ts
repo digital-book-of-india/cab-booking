@@ -120,6 +120,26 @@ export const PaymentService = {
     });
   },
 
+  /** Settle/Pay an outstanding due item (supports Razorpay or dev auto-complete) */
+  async payOutstandingDue(
+    bookingId: string,
+    method: 'ONLINE' | 'WALLET' = 'ONLINE',
+  ): Promise<PaymentDetails> {
+    if (method === 'WALLET') {
+      return this.payFromWallet(bookingId);
+    }
+    const order = await this.startBookingPayment(bookingId);
+    try {
+      return await this.completeDevPayment(order.paymentId);
+    } catch {
+      return await this.verifyPayment({
+        paymentId: order.paymentId,
+        providerPaymentId: `pay_prov_${Date.now()}`,
+        providerSignature: `sig_${Date.now()}`,
+      });
+    }
+  },
+
   /** Dev helper to simulate completing a top-up or ride payment */
   async completeDevPayment(paymentId: string): Promise<PaymentDetails> {
     return await apiRequest<PaymentDetails>(`dev/payments/${paymentId}/complete`, {

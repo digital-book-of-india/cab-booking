@@ -1,0 +1,213 @@
+import { StyleSheet } from 'react-native';
+import { COLORS } from '../../constants/colors';
+
+export const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  blockedAlertBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  blockedAlertText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#991B1B',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  heroDueCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  heroDueLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  heroDueAmount: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#B45309',
+    marginBottom: 4,
+  },
+  heroDueSubtext: {
+    fontSize: 12,
+    color: '#78350F',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  dueItemCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginBottom: 12,
+  },
+  dueItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dueItemBookingId: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  dueItemBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dueItemBadgeOverdue: {
+    backgroundColor: '#FEE2E2',
+  },
+  dueItemBadgeDue: {
+    backgroundColor: '#FEF3C7',
+  },
+  dueItemBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dueItemBadgeTextOverdue: {
+    color: '#DC2626',
+  },
+  dueItemBadgeTextDue: {
+    color: '#D97706',
+  },
+  dueItemDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  dueItemPurpose: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  dueItemDate: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  dueItemAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  dueItemPayBtn: {
+    marginTop: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dueItemPayBtnText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  methodSelector: {
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  methodOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+    backgroundColor: '#FFF',
+  },
+  methodOptionActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#EFF6FF',
+  },
+  methodOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  methodOptionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  methodOptionSub: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  footerActions: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+});

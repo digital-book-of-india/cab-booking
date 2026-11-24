@@ -24,6 +24,14 @@ export function createCustomersService() {
       name: user.name ?? null,
       email: profile?.email ?? null,
       accountStatus: user.accountStatus,
+      ratingCount: profile?.ratingCount ?? 0,
+      ratingSum: profile?.ratingSum ?? 0,
+      ratingAverage:
+        profile?.ratingCount && profile.ratingCount > 0
+          ? Number((profile.ratingSum / profile.ratingCount).toFixed(1))
+          : 5.0,
+      bookingRestricted: profile?.bookingRestricted ?? false,
+      bookingRestrictionReason: profile?.bookingRestrictionReason ?? null,
       createdAt: user.createdAt,
     };
   }
