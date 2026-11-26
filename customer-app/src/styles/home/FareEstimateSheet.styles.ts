@@ -1,0 +1,206 @@
+import { StyleSheet } from 'react-native';
+import { COLORS, RADIUS, SPACING } from '../../constants/colors';
+
+export const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    maxHeight: '86%',
+    paddingBottom: SPACING.lg,
+  },
+  handleRow: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  handle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  kindBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  kindBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.full,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    gap: SPACING.md,
+  },
+  expiryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  expiryActive: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  expiryExpired: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  expiryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  expiryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+  },
+  refreshBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  breakdownCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  lineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  lineLabel: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  lineValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  discountLabel: {
+    fontSize: 14,
+    color: COLORS.success,
+    fontWeight: '700',
+  },
+  discountValue: {
+    fontSize: 14,
+    color: COLORS.success,
+    fontWeight: '800',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  infoCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: RADIUS.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    gap: 4,
+  },
+  infoTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+  },
+  infoBody: {
+    fontSize: 12,
+    color: COLORS.text,
+    lineHeight: 17,
+  },
+  metaNote: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    paddingBottom: SPACING.xs,
+  },
+});

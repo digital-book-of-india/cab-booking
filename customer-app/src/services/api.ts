@@ -33,6 +33,7 @@ type ApiOptions = Omit<RequestInit, 'body'> & {
   token?: string | null;
   skipAuth?: boolean;
   withMeta?: boolean;
+  timeoutMs?: number;
 };
 
 async function parseResponse(response: Response): Promise<unknown> {
@@ -59,20 +60,21 @@ export async function apiRequest<T>(
     throw new Error('Missing EXPO_PUBLIC_API_URL in customer-app/.env');
   }
 
-  const { token, skipAuth, headers, body, signal, withMeta, ...requestOptions } = options;
+  const { token, skipAuth, headers, body, signal, withMeta, timeoutMs, ...requestOptions } = options;
 
   let authToken = token;
   if (!skipAuth && !authToken) {
     authToken = await TokenStorage.getAccessToken();
   }
 
+  const effectiveTimeout = timeoutMs ?? API_CONFIG.timeout;
   const controller = new AbortController();
   let timedOut = false;
 
   const timeoutId = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, API_CONFIG.timeout);
+  }, effectiveTimeout);
 
   const abortFromCaller = () => controller.abort();
 
@@ -200,15 +202,27 @@ export async function apiRequest<T>(
     }
 
     if (timedOut) {
-      throw new Error('Request timed out. Please try again.');
+      const secs = Math.round(effectiveTimeout / 1000);
+      throw new Error(
+        __DEV__
+          ? `Request timed out after ${secs}s reaching ${baseURL}. Ensure the backend is running on port 4000 and reachable from this device.`
+          : 'Request timed out. Please try again.',
+      );
     }
 
     if (error instanceof Error && error.name === 'AbortError') {
       throw error;
     }
 
+    const rawMsg = error instanceof Error ? error.message : '';
+    if (__DEV__ && /network request failed|failed to fetch/i.test(rawMsg)) {
+      throw new Error(
+        `Cannot reach server at ${baseURL}. Start the backend and check your Wi-Fi/tunnel connection.`,
+      );
+    }
+
     throw new Error(
-      error instanceof Error ? error.message : 'Unable to connect to server. Check your connection.',
+      rawMsg || 'Unable to connect to server. Check your connection.',
     );
   } finally {
     clearTimeout(timeoutId);

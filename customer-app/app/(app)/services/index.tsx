@@ -10,7 +10,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "../../../src/components/common/Header";
 import { RideBookingModal } from "../../../src/components/home/RideBookingModal";
+import { ZoneStatusBanner } from "../../../src/components/home/ZoneStatusBanner";
 import { COLORS, RADIUS, SPACING } from "../../../src/constants/colors";
+import { useZoneStatus } from "../../../src/hooks/useZoneStatus";
+import type {
+  LocationPoint,
+  TripMode,
+} from "../../../src/types/location.types";
 
 interface ServiceItem {
   id: string;
@@ -18,6 +24,7 @@ interface ServiceItem {
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
   serviceId: string;
+  tripMode?: TripMode;
   badge?: string;
   badgeColor?: string;
   iconBg: string;
@@ -63,7 +70,8 @@ const RIDE_SERVICES: ServiceItem[] = [
     title: "Intercity Outstation",
     description: "Comfortable one-way and round trips",
     icon: "navigate",
-    serviceId: "cab_premier",
+    serviceId: "SEDAN",
+    tripMode: "OUTSTATION",
     iconBg: "#F5F3FF",
     iconColor: "#7C3AED",
   },
@@ -72,7 +80,8 @@ const RIDE_SERVICES: ServiceItem[] = [
     title: "Hourly Rentals",
     description: "Cab and driver stay with you by the hour",
     icon: "time",
-    serviceId: "cab_rentals",
+    serviceId: "MINI",
+    tripMode: "RENTAL",
     iconBg: "#FDF2F8",
     iconColor: "#DB2777",
   },
@@ -91,13 +100,25 @@ const DELIVERY_SERVICES: ServiceItem[] = [
 ];
 
 export default function ServicesScreen() {
+  const zone = useZoneStatus();
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState("cab_go");
+  const [selectedServiceId, setSelectedServiceId] = useState("MINI");
+  const [selectedTripMode, setSelectedTripMode] = useState<TripMode>("CITY");
 
-  const handleOpenBooking = (serviceId: string) => {
+  const handleOpenBooking = (serviceId: string, tripMode: TripMode = "CITY") => {
     setSelectedServiceId(serviceId);
+    setSelectedTripMode(tripMode);
     setBookingModalVisible(true);
   };
+
+  const initialPickup: LocationPoint | null = zone.coords
+    ? {
+        ...zone.coords,
+        label: zone.serviceability?.pickup.serviceable
+          ? `Current Location (${zone.serviceability.pickup.zoneName})`
+          : "Current Location",
+      }
+    : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -107,6 +128,12 @@ export default function ServicesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ZoneStatusBanner
+          zone={zone}
+          horizontalMargin={0}
+          marginBottom={SPACING.md}
+        />
+
         {/* Section 1: Go Anywhere */}
         <Text style={styles.sectionHeading}>Go Anywhere</Text>
         <View style={styles.cardsList}>
@@ -114,7 +141,7 @@ export default function ServicesScreen() {
             <TouchableOpacity
               key={item.id}
               style={styles.serviceCard}
-              onPress={() => handleOpenBooking(item.serviceId)}
+              onPress={() => handleOpenBooking(item.serviceId, item.tripMode ?? "CITY")}
               activeOpacity={0.7}
             >
               <View style={[styles.iconBox, { backgroundColor: item.iconBg }]}>
@@ -158,7 +185,7 @@ export default function ServicesScreen() {
             <TouchableOpacity
               key={item.id}
               style={styles.serviceCard}
-              onPress={() => handleOpenBooking(item.serviceId)}
+              onPress={() => handleOpenBooking(item.serviceId, item.tripMode ?? "CITY")}
               activeOpacity={0.7}
             >
               <View style={[styles.iconBox, { backgroundColor: item.iconBg }]}>
@@ -185,6 +212,9 @@ export default function ServicesScreen() {
         visible={bookingModalVisible}
         onClose={() => setBookingModalVisible(false)}
         initialServiceId={selectedServiceId}
+        initialPickup={initialPickup}
+        initialZoneServiceability={zone.serviceability}
+        initialTripMode={selectedTripMode}
         walletBalancePaise={125000}
       />
     </SafeAreaView>

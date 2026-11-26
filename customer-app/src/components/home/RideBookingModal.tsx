@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,449 +10,485 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { AppButton } from '../common/AppButton';
 import { COLORS } from '../../constants/colors';
-import { apiRequest } from '../../services/api';
-import { styles } from './RideBookingModal.styles';
-
-export type RideCoupon = {
-  id: string;
-  code: string;
-  title?: string;
-  description?: string;
-  type?: 'PERCENT' | 'FLAT';
-  value?: number;
-  maxDiscountPaise?: number | null;
-  minFarePaise?: number;
-  icon?: string;
-  badgeColor?: string;
-  badgeBg?: string;
-};
-
-export type RideOption = {
-  id: string;
-  name: string;
-  desc: string;
-  eta: string;
-  price: number;
-  originalPrice: number;
-  icon: keyof typeof Ionicons.glyphMap;
-  tag?: string;
-};
-
-const RIDE_OPTIONS: RideOption[] = [
-  {
-    id: 'cab_go',
-    name: 'Cab Go',
-    desc: 'Affordable, compact rides',
-    eta: '3 mins away',
-    price: 190,
-    originalPrice: 240,
-    icon: 'car-sport',
-    tag: 'Fastest',
-  },
-  {
-    id: 'cab_premier',
-    name: 'Cab Premier',
-    desc: 'Top-rated drivers & comfy sedans',
-    eta: '5 mins away',
-    price: 280,
-    originalPrice: 330,
-    icon: 'car',
-    tag: 'Popular',
-  },
-  {
-    id: 'cab_auto',
-    name: 'Auto',
-    desc: 'Doorstep pick-up, no bargaining',
-    eta: '2 mins away',
-    price: 110,
-    originalPrice: 135,
-    icon: 'bicycle',
-  },
-  {
-    id: 'cab_moto',
-    name: 'Moto Bike',
-    desc: 'Beat city traffic, quick commute',
-    eta: '1 min away',
-    price: 65,
-    originalPrice: 85,
-    icon: 'flash',
-    tag: 'Cheapest',
-  },
-  {
-    id: 'cab_rentals',
-    name: 'Hourly Rentals',
-    desc: 'Keep cab for multiple stops (2 hrs)',
-    eta: 'Available now',
-    price: 550,
-    originalPrice: 650,
-    icon: 'time',
-  },
-];
-
-const SUGGESTED_DESTINATIONS = [
-  { title: 'Airport T3', subtitle: 'Indira Gandhi Int Airport' },
-  { title: 'Cyber Hub', subtitle: 'DLF Cyber City, Gurugram' },
-  { title: 'New Delhi Rly Stn', subtitle: 'Paharganj, Central Delhi' },
-  { title: 'Select Citywalk', subtitle: 'Saket District Centre' },
-];
+import { useRideBookingSheet } from '../../hooks/useRideBookingSheet';
+import { QuotesService } from '../../services/quotes.service';
+import { styles } from '../../styles/home/RideBookingModal.styles';
+import type {
+  LocationPoint,
+  ServiceabilityResponse,
+  TripMode,
+} from '../../types/location.types';
+import type { Coordinates } from '../../types/ride.types';
+import { BookingConfirmView } from './BookingConfirmView';
+import { CabCategoryList } from './CabCategoryList';
+import { FareEstimateSheet } from './FareEstimateSheet';
+import { HomeMap } from './HomeMap';
+import { LocationSearchModal } from './LocationSearchModal';
+import { PaymentCouponBar } from './PaymentCouponBar';
+import { PinAdjusterModal } from './PinAdjusterModal';
+import { RoutePickerCard } from './RoutePickerCard';
+import { ServiceabilityAlert } from './ServiceabilityAlert';
 
 export type RideBookingModalProps = {
   visible: boolean;
   onClose: () => void;
-  initialDestination?: string;
   initialServiceId?: string;
   walletBalancePaise?: number;
+  currentCoords?: Coordinates | null;
+  initialPickup?: LocationPoint | null;
+  initialDrop?: LocationPoint | null;
+  initialZoneServiceability?: ServiceabilityResponse | null;
+  initialTripMode?: TripMode;
+  autoOpenSearchField?: 'pickup' | 'drop' | null;
 };
 
-export const RideBookingModal: React.FC<RideBookingModalProps> = ({
+const TRIP_MODE_TABS: { mode: TripMode; label: string }[] = [
+  { mode: 'CITY', label: 'City Ride' },
+  { mode: 'RENTAL', label: 'Rentals' },
+  { mode: 'OUTSTATION', label: 'Outstation' },
+];
+
+const SCHEDULE_PRESETS: { label: string; offsetMs: number | null }[] = [
+  { label: 'Now', offsetMs: null },
+  { label: 'In 45m', offsetMs: 45 * 60_000 },
+  { label: 'In 2h', offsetMs: 2 * 3_600_000 },
+  { label: 'Tomorrow', offsetMs: 24 * 3_600_000 },
+];
+
+const RETURN_DAY_PRESETS: { label: string; days: number }[] = [
+  { label: '+1 Day', days: 1 },
+  { label: '+2 Days', days: 2 },
+  { label: '+3 Days', days: 3 },
+];
+
+export const RideBookingModal: React.FC<RideBookingModalProps> = (props) => {
+  return (
+    <Modal
+      visible={props.visible}
+      animationType="slide"
+      transparent
+      onRequestClose={props.onClose}
+    >
+      {props.visible ? <RideBookingContent {...props} /> : null}
+    </Modal>
+  );
+};
+
+const RideBookingContent: React.FC<RideBookingModalProps> = ({
   visible,
   onClose,
-  initialDestination = '',
-  initialServiceId = 'cab_go',
+  initialServiceId = 'MINI',
   walletBalancePaise = 125000,
+  currentCoords = null,
+  initialPickup = null,
+  initialDrop = null,
+  initialZoneServiceability = null,
+  initialTripMode = 'CITY',
+  autoOpenSearchField = null,
 }) => {
-  const [destination, setDestination] = useState(initialDestination);
-  const [selectedRide, setSelectedRide] = useState<string>(initialServiceId);
-  const [paymentMode, setPaymentMode] = useState<'WALLET' | 'CASH' | 'UPI'>('WALLET');
-  const [bookingStep, setBookingStep] = useState<'SELECT' | 'CONFIRMING' | 'CONFIRMED'>('SELECT');
-  const [activeOffers, setActiveOffers] = useState<RideCoupon[]>([]);
-  const [selectedCoupon, setSelectedCoupon] = useState<RideCoupon | null>(null);
+  const [selectedScheduleIndex, setSelectedScheduleIndex] = React.useState(0);
+  const [selectedReturnDays, setSelectedReturnDays] = React.useState<number | null>(1);
 
-  useEffect(() => {
-    if (visible) {
-      apiRequest<RideCoupon[]>('coupons/active')
-        .then((res) => {
-          const list = Array.isArray(res) ? res : (res as any)?.items || [];
-          setActiveOffers(list);
-          if (list.length > 0 && !selectedCoupon) {
-            setSelectedCoupon(list[0]);
-          }
-        })
-        .catch(() => {
-          setActiveOffers([]);
-        });
+  const sheet = useRideBookingSheet({
+    visible,
+    initialServiceId,
+    initialPickup,
+    initialDrop,
+    initialZoneServiceability,
+    initialTripMode,
+    onClose,
+  });
+
+  React.useEffect(() => {
+    if (visible && autoOpenSearchField) {
+      sheet.openSearchModal(autoOpenSearchField);
     }
-  }, [visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, autoOpenSearchField]);
 
-  const calculateDiscount = (basePrice: number) => {
-    if (!selectedCoupon) return 0;
-    const basePaise = basePrice * 100;
-    if (selectedCoupon.minFarePaise && basePaise < selectedCoupon.minFarePaise) return 0;
-    let discPaise = 0;
-    if (selectedCoupon.type === 'PERCENT') {
-      discPaise = Math.round((basePaise * (selectedCoupon.value || 0)) / 10000);
-      if (selectedCoupon.maxDiscountPaise) {
-        discPaise = Math.min(discPaise, selectedCoupon.maxDiscountPaise);
-      }
-    } else {
-      discPaise = selectedCoupon.value || 0;
-    }
-    const finalPaise = Math.max(100, basePaise - discPaise);
-    return Math.round((basePaise - finalPaise) / 100);
-  };
+  const modalTitle =
+    sheet.bookingStep === 'CONFIRMED'
+      ? 'Ride Confirmed!'
+      : sheet.tripMode === 'RENTAL'
+      ? 'Hourly Rentals'
+      : sheet.tripMode === 'OUTSTATION'
+      ? 'Intercity Outstation'
+      : 'Choose a Ride';
 
-  const handleToggleCoupon = () => {
-    if (activeOffers.length === 0) {
-      Alert.alert('Offers', 'No active offers available right now.');
-      return;
-    }
-    if (!selectedCoupon) {
-      setSelectedCoupon(activeOffers[0]);
-      return;
-    }
-    const currentIndex = activeOffers.findIndex((o) => o.code === selectedCoupon.code);
-    const nextIndex = (currentIndex + 1) % (activeOffers.length + 1);
-    if (nextIndex === activeOffers.length) {
-      setSelectedCoupon(null);
-    } else {
-      setSelectedCoupon(activeOffers[nextIndex]);
-    }
-  };
-
-  const selectedOption =
-    RIDE_OPTIONS.find((r) => r.id === selectedRide) || RIDE_OPTIONS[0];
-  const couponDiscount = calculateDiscount(selectedOption.price);
-  const finalPrice = Math.max(1, selectedOption.price - couponDiscount);
-
-  const handleBookNow = () => {
-    setBookingStep('CONFIRMING');
-    setTimeout(() => {
-      setBookingStep('CONFIRMED');
-    }, 1800);
-  };
-
-  const handleDone = () => {
-    setBookingStep('SELECT');
-    onClose();
-    router.push('/(app)/rides');
-  };
+  const pinInitialCoords =
+    sheet.editingStopIndex !== null
+      ? sheet.stops[sheet.editingStopIndex] ??
+        sheet.dropPoint ??
+        sheet.pickupPoint ??
+        currentCoords
+      : sheet.pinField === 'pickup'
+      ? sheet.pickupPoint ?? currentCoords
+      : sheet.dropPoint ?? sheet.pickupPoint ?? currentCoords;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Top Drag Handle */}
           <View style={styles.dragHandleBar}>
             <View style={styles.dragHandle} />
           </View>
 
-          {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.modalTitle}>
-              {bookingStep === 'CONFIRMED' ? 'Ride Confirmed! 🎉' : 'Choose a Ride'}
-            </Text>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => {
-                setBookingStep('SELECT');
-                onClose();
-              }}
-            >
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <TouchableOpacity style={styles.closeBtn} onPress={sheet.closeModal}>
               <Ionicons name="close" size={20} color={COLORS.text} />
             </TouchableOpacity>
           </View>
 
-          {bookingStep === 'CONFIRMING' ? (
-            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 12 }}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
-                Connecting to nearest driver...
-              </Text>
-              <Text style={{ fontSize: 13, color: COLORS.textSecondary }}>
-                Finding best fare & ETA for you
-              </Text>
-            </View>
-          ) : bookingStep === 'CONFIRMED' ? (
-            /* Confirmed Driver Details (Uber / Ola Style) */
-            <View style={styles.confirmContainer}>
-              <View style={styles.confirmIconBox}>
-                <Ionicons name="checkmark-circle" size={48} color="#16A34A" />
-              </View>
-
-              <Text style={styles.confirmTitle}>Driver is on the way!</Text>
-              <Text style={styles.confirmSub}>
-                Arriving in 3 mins at your pickup location
-              </Text>
-
-              <View style={styles.driverInfoCard}>
-                <View style={styles.driverLeft}>
-                  <View style={styles.driverAvatar}>
-                    <Ionicons name="person" size={24} color={COLORS.primary} />
-                  </View>
-                  <View>
-                    <Text style={styles.driverName}>Vikram Singh • 4.9 ⭐</Text>
-                    <Text style={styles.driverCar}>White Dzire • DL 01 CA 9988</Text>
-                  </View>
-                </View>
-
-                <View style={styles.otpBadge}>
-                  <Text style={styles.otpLabel}>START OTP</Text>
-                  <Text style={styles.otpCode}>5491</Text>
-                </View>
-              </View>
-
-              <AppButton title="View Live Ride Details" onPress={handleDone} />
-            </View>
+          {sheet.bookingStep !== 'SELECT' ? (
+            <BookingConfirmView step={sheet.bookingStep} onDone={sheet.finishBooking} />
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Route Input Box */}
-              <View style={styles.routeBox}>
-                {/* Pickup Row */}
-                <View style={styles.locationInputRow}>
-                  <View style={styles.pickupDot} />
-                  <Text
-                    style={[styles.locationTextInput, { color: COLORS.text }]}
-                    numberOfLines={1}
-                  >
-                    Current Location (Connaught Place, New Delhi)
-                  </Text>
-                </View>
-
-                <View style={styles.routeDivider} />
-
-                {/* Dropoff Row */}
-                <View style={styles.locationInputRow}>
-                  <View style={styles.dropoffSquare} />
-                  <TextInput
-                    style={styles.locationTextInput}
-                    placeholder="Where to? Enter destination"
-                    placeholderTextColor={COLORS.textSecondary}
-                    value={destination}
-                    onChangeText={setDestination}
-                  />
-                </View>
+              <View style={styles.modeTabsRow}>
+                {TRIP_MODE_TABS.map((tab) => {
+                  const active = sheet.tripMode === tab.mode;
+                  return (
+                    <TouchableOpacity
+                      key={tab.mode}
+                      style={[styles.modeTab, active && styles.modeTabActive]}
+                      onPress={() => sheet.setTripMode(tab.mode)}
+                    >
+                      <Text
+                        style={[
+                          styles.modeTabText,
+                          active && styles.modeTabTextActive,
+                        ]}
+                      >
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* Destination Suggestions Chips */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.suggestionsContainer}
+                contentContainerStyle={styles.scheduleRow}
               >
-                {SUGGESTED_DESTINATIONS.map((sug, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={styles.suggestionChip}
-                    onPress={() => setDestination(`${sug.title}, ${sug.subtitle}`)}
-                  >
-                    <Ionicons name="navigate-outline" size={14} color={COLORS.primary} />
-                    <Text style={styles.suggestionChipText}>{sug.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Available Cabs List */}
-              <Text style={styles.vehiclesSectionTitle}>Available Cabs & Auto</Text>
-              {RIDE_OPTIONS.map((opt) => {
-                const isSelected = selectedRide === opt.id;
-                return (
-                  <TouchableOpacity
-                    key={opt.id}
-                    style={[
-                      styles.vehicleCard,
-                      isSelected && styles.vehicleCardSelected,
-                    ]}
-                    onPress={() => setSelectedRide(opt.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.vehicleLeft}>
-                      <View
-                        style={[
-                          styles.vehicleIconBox,
-                          isSelected && { backgroundColor: '#DBEAFE' },
-                        ]}
-                      >
-                        <Ionicons
-                          name={opt.icon}
-                          size={24}
-                          color={isSelected ? COLORS.primary : COLORS.text}
-                        />
-                      </View>
-                      <View>
-                        <View style={styles.vehicleNameRow}>
-                          <Text style={styles.vehicleName}>{opt.name}</Text>
-                          {opt.tag ? (
-                            <View style={styles.tagBadge}>
-                              <Text style={styles.tagBadgeText}>{opt.tag}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <Text style={styles.vehicleMeta}>
-                          {opt.eta} • {opt.desc}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.vehicleRight}>
-                      <Text style={styles.vehiclePrice}>₹{opt.price}</Text>
-                      <Text style={styles.vehicleOriginalPrice}>
-                        ₹{opt.originalPrice}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* Payment & Coupon Row */}
-              <View style={styles.paymentRow}>
-                <TouchableOpacity
-                  style={styles.paymentPill}
-                  onPress={() =>
-                    setPaymentMode((prev) =>
-                      prev === 'WALLET' ? 'CASH' : prev === 'CASH' ? 'UPI' : 'WALLET',
-                    )
-                  }
-                >
-                  <Ionicons
-                    name={
-                      paymentMode === 'WALLET'
-                        ? 'wallet'
-                        : paymentMode === 'CASH'
-                        ? 'cash'
-                        : 'card'
-                    }
-                    size={16}
-                    color={COLORS.primary}
-                  />
-                  <Text style={styles.paymentText}>
-                    {paymentMode === 'WALLET'
-                      ? `Wallet (₹${(walletBalancePaise / 100).toFixed(0)})`
-                      : paymentMode}
-                  </Text>
-                  <Ionicons name="chevron-down" size={14} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.couponPill,
-                    selectedCoupon
-                      ? {
-                          backgroundColor: selectedCoupon.badgeBg || '#FEF3C7',
-                        }
-                      : {
-                          backgroundColor: '#F1F5F9',
-                        },
-                  ]}
-                  onPress={handleToggleCoupon}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={
-                      selectedCoupon
-                        ? (selectedCoupon.icon as keyof typeof Ionicons.glyphMap) ||
-                          (selectedCoupon.type === 'PERCENT' ? 'pricetag' : 'gift')
-                        : 'pricetag-outline'
-                    }
-                    size={12}
-                    color={
-                      selectedCoupon
-                        ? selectedCoupon.badgeColor || '#B45309'
-                        : COLORS.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.couponText,
-                      {
-                        color: selectedCoupon
-                          ? selectedCoupon.badgeColor || '#B45309'
-                          : COLORS.textSecondary,
-                      },
-                    ]}
-                  >
-                    {selectedCoupon
-                      ? `${selectedCoupon.code}${couponDiscount > 0 ? ` (-₹${couponDiscount})` : ''}`
-                      : 'Apply Offer'}
-                  </Text>
-                  {selectedCoupon && (
+                {SCHEDULE_PRESETS.map((preset, idx) => {
+                  const active = selectedScheduleIndex === idx;
+                  return (
                     <TouchableOpacity
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setSelectedCoupon(null);
+                      key={preset.label}
+                      style={[
+                        styles.scheduleChip,
+                        active && styles.scheduleChipActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedScheduleIndex(idx);
+                        const nextScheduled =
+                          preset.offsetMs === null
+                            ? null
+                            : new Date(Date.now() + preset.offsetMs);
+                        sheet.setScheduledFor(nextScheduled);
+                        if (
+                          sheet.tripMode === 'OUTSTATION' &&
+                          sheet.outstationTripType === 'ROUND_TRIP' &&
+                          selectedReturnDays
+                        ) {
+                          const base = nextScheduled ?? new Date();
+                          sheet.setOutstationReturnAt(
+                            new Date(base.getTime() + selectedReturnDays * 86_400_000),
+                          );
+                        }
                       }}
                     >
                       <Ionicons
-                        name="close-circle"
-                        size={14}
-                        color={selectedCoupon.badgeColor || '#B45309'}
+                        name={idx === 0 ? 'flash-outline' : 'time-outline'}
+                        size={12}
+                        color={active ? COLORS.primaryDark : COLORS.textSecondary}
                       />
+                      <Text
+                        style={[
+                          styles.scheduleChipText,
+                          active && styles.scheduleChipTextActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
                     </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  );
+                })}
+              </ScrollView>
 
-              {/* CTA Button */}
+              <RoutePickerCard
+                pickupPoint={sheet.pickupPoint}
+                dropPoint={sheet.dropPoint}
+                stops={sheet.stops}
+                activeField={sheet.activeField}
+                tripMode={sheet.tripMode}
+                quickLocations={sheet.quickLocations}
+                onPressSearchField={sheet.openSearchModal}
+                onPressPinField={sheet.openPinModal}
+                onPressStopSearch={sheet.openStopSearchModal}
+                onPressStopPin={sheet.openStopPinModal}
+                onRemoveStop={sheet.removeStop}
+                onSelectLocation={sheet.selectQuickLocation}
+                onPressManageSavedPlaces={() => {
+                  sheet.closeModal();
+                  router.push('/(app)/places');
+                }}
+              />
+
+              {sheet.tripMode !== 'RENTAL' &&
+              sheet.pickupPoint &&
+              sheet.dropPoint ? (
+                <HomeMap
+                  compact
+                  userCoords={currentCoords}
+                  pickupPoint={sheet.pickupPoint}
+                  dropPoint={sheet.dropPoint}
+                  routeEstimate={sheet.routeEstimate}
+                  routeLoading={sheet.routeLoading}
+                  onPressAdjustPin={() => sheet.openPinModal(sheet.activeField)}
+                />
+              ) : null}
+
+              <ServiceabilityAlert
+                pickupPoint={sheet.pickupPoint}
+                dropPoint={sheet.dropPoint}
+                tripMode={sheet.tripMode}
+                checkingServiceability={sheet.checkingServiceability}
+                tripModeLoading={sheet.tripModeLoading}
+                routeLoading={sheet.routeLoading}
+                serviceabilityError={sheet.serviceabilityError}
+                tripModeError={sheet.tripModeError}
+                routeError={sheet.routeError}
+                serviceabilityResult={sheet.serviceabilityResult}
+                rentalPackages={sheet.rentalPackages}
+                outstationOptions={sheet.outstationOptions}
+                onRetry={sheet.retryServiceability}
+              />
+
+              {sheet.tripMode === 'RENTAL' &&
+              sheet.rentalPackages &&
+              sheet.rentalPackages.length > 0 ? (
+                <View style={styles.tripConfigSection}>
+                  <Text style={styles.tripConfigLabel}>Select Rental Package</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.packageScroll}
+                  >
+                    {sheet.rentalPackages.map((pkg) => {
+                      const active = sheet.selectedRentalPackageId === pkg.packageId;
+                      return (
+                        <TouchableOpacity
+                          key={pkg.packageId}
+                          style={[
+                            styles.packageCard,
+                            active && styles.packageCardActive,
+                          ]}
+                          onPress={() => sheet.setSelectedRentalPackageId(pkg.packageId)}
+                        >
+                          <Text style={styles.packageTitle}>{pkg.name}</Text>
+                          <Text style={styles.packageMeta}>
+                            {pkg.hours} hr • {pkg.includedKm} km
+                          </Text>
+                          <Text style={styles.packagePrice}>
+                            {QuotesService.formatPaise(pkg.pricePaise)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+
+              {sheet.tripMode === 'OUTSTATION' &&
+              sheet.outstationOptions &&
+              sheet.outstationOptions.length > 0 ? (
+                <View style={styles.tripConfigSection}>
+                  <Text style={styles.tripConfigLabel}>Trip Type</Text>
+                  <View style={styles.outstationRow}>
+                    {(['ONE_WAY', 'ROUND_TRIP'] as const).map((type) => {
+                      const active = sheet.outstationTripType === type;
+                      return (
+                        <TouchableOpacity
+                          key={type}
+                          style={[
+                            styles.scheduleChip,
+                            active && styles.scheduleChipActive,
+                          ]}
+                          onPress={() => {
+                            sheet.setOutstationTripType(type);
+                            if (type === 'ROUND_TRIP' && !sheet.outstationReturnAt) {
+                              const base = sheet.scheduledFor ?? new Date();
+                              setSelectedReturnDays(1);
+                              sheet.setOutstationReturnAt(
+                                new Date(base.getTime() + 86_400_000),
+                              );
+                            } else if (type === 'ONE_WAY') {
+                              sheet.setOutstationReturnAt(null);
+                            }
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.scheduleChipText,
+                              active && styles.scheduleChipTextActive,
+                            ]}
+                          >
+                            {type === 'ONE_WAY' ? 'One Way' : 'Round Trip'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {sheet.outstationTripType === 'ROUND_TRIP' ? (
+                    <View style={styles.outstationRow}>
+                      {RETURN_DAY_PRESETS.map((preset) => {
+                        const active = selectedReturnDays === preset.days;
+                        return (
+                          <TouchableOpacity
+                            key={preset.label}
+                            style={[
+                              styles.scheduleChip,
+                              active && styles.scheduleChipActive,
+                            ]}
+                            onPress={() => {
+                              const base = sheet.scheduledFor ?? new Date();
+                              setSelectedReturnDays(preset.days);
+                              sheet.setOutstationReturnAt(
+                                new Date(base.getTime() + preset.days * 86_400_000),
+                              );
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.scheduleChipText,
+                                active && styles.scheduleChipTextActive,
+                              ]}
+                            >
+                              Return {preset.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {sheet.quoteError || sheet.isSelectedQuoteExpired ? (
+                <View
+                  style={[
+                    styles.quoteBanner,
+                    sheet.isSelectedQuoteExpired && styles.quoteBannerWarn,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      sheet.isSelectedQuoteExpired
+                        ? 'time-outline'
+                        : 'alert-circle-outline'
+                    }
+                    size={16}
+                    color={
+                      sheet.isSelectedQuoteExpired ? COLORS.warning : COLORS.error
+                    }
+                  />
+                  <Text style={styles.quoteBannerText}>
+                    {sheet.isSelectedQuoteExpired
+                      ? 'Your fare quote expired. Refresh to lock the current price.'
+                      : sheet.quoteError}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.quoteBannerAction}
+                    onPress={
+                      sheet.isSelectedQuoteExpired
+                        ? sheet.refreshSelectedQuote
+                        : sheet.recalculateQuotes
+                    }
+                  >
+                    <Text style={styles.quoteBannerActionText}>Refresh</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              <CabCategoryList
+                zoneName={sheet.zoneName}
+                loading={sheet.categoriesLoading}
+                categories={sheet.displayCategories}
+                selectedCategoryId={sheet.selectedCategory?.id}
+                onSelectCategory={sheet.setSelectedCategoryId}
+                quotesByCategory={sheet.quotesByCategory}
+                quotesLoading={sheet.quotesLoading}
+                isSelectedQuoteExpired={sheet.isSelectedQuoteExpired}
+                onOpenFareDetails={() => sheet.setFareSheetVisible(true)}
+              />
+
+              <PaymentCouponBar
+                paymentMode={sheet.paymentMode}
+                walletBalancePaise={walletBalancePaise}
+                selectedCoupon={sheet.selectedCoupon}
+                activeCouponCode={sheet.activeCouponCode}
+                activeOffers={sheet.activeOffers}
+                couponError={sheet.couponError}
+                onCyclePaymentMode={sheet.cyclePaymentMode}
+                onToggleCoupon={sheet.toggleCoupon}
+                onSelectCoupon={sheet.selectCoupon}
+                onApplyCouponCode={sheet.applyCouponCode}
+                onClearCoupon={sheet.clearCoupon}
+              />
+
               <View style={styles.ctaContainer}>
                 <AppButton
-                  title={`Book ${selectedOption.name} • ₹${finalPrice}`}
-                  onPress={handleBookNow}
+                  title={sheet.ctaTitle}
+                  disabled={!sheet.canProceed && !sheet.isSelectedQuoteExpired}
+                  onPress={sheet.startBooking}
                 />
               </View>
             </ScrollView>
           )}
         </View>
       </View>
-    </Modal>
+
+      <FareEstimateSheet
+        visible={sheet.fareSheetVisible}
+        quote={sheet.selectedQuote}
+        categoryName={sheet.selectedCategory?.name}
+        secondsUntilExpiry={sheet.secondsUntilExpiry}
+        isExpired={sheet.isSelectedQuoteExpired}
+        refreshing={sheet.refreshingQuote}
+        onRefresh={sheet.refreshSelectedQuote}
+        onClose={() => sheet.setFareSheetVisible(false)}
+      />
+
+      <LocationSearchModal
+        visible={sheet.searchModalVisible}
+        initialField={sheet.searchField}
+        pickupPoint={sheet.pickupPoint}
+        dropPoint={sheet.dropPoint}
+        currentCoords={currentCoords}
+        savedPlaces={sheet.savedPlaces}
+        tripMode={sheet.tripMode}
+        singleFieldMode={sheet.editingStopIndex !== null}
+        onSelectPoint={sheet.handlePointSelected}
+        onOpenMapPicker={(field) => {
+          if (sheet.editingStopIndex !== null) {
+            sheet.openStopPinModal(sheet.editingStopIndex);
+          } else {
+            sheet.openPinModal(field);
+          }
+        }}
+        onClose={() => sheet.setSearchModalVisible(false)}
+      />
+
+      <PinAdjusterModal
+        visible={sheet.pinModalVisible}
+        field={sheet.pinField}
+        initialCoords={pinInitialCoords}
+        onConfirm={sheet.handlePointSelected}
+        onClose={() => sheet.setPinModalVisible(false)}
+      />
+    </>
   );
 };

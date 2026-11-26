@@ -36,6 +36,18 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.success,
   },
+  locationDotSuccess: {
+    backgroundColor: COLORS.success,
+  },
+  locationDotWarning: {
+    backgroundColor: COLORS.warning,
+  },
+  locationDotError: {
+    backgroundColor: COLORS.error,
+  },
+  locationDotNeutral: {
+    backgroundColor: COLORS.disabled,
+  },
   locationText: {
     fontSize: 13,
     fontWeight: "700",

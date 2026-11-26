@@ -2,7 +2,7 @@ import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
-import { styles } from "./ServiceCategories.styles";
+import { styles } from "../../styles/home/ServiceCategories.styles";
 
 export interface CategoryItem {
   id: string;
@@ -18,40 +18,40 @@ const CATEGORIES: CategoryItem[] = [
     title: "Ride",
     icon: "car-sport",
     badge: "25%",
-    serviceId: "cab_go",
+    serviceId: "MINI",
   },
   {
     id: "bus_metro",
     title: "Bus & Metro",
     icon: "bus",
     badge: "Promo",
-    serviceId: "cab_auto",
+    serviceId: "MINI",
   },
   {
     id: "intercity",
     title: "Intercity",
     icon: "navigate",
     badge: "7%",
-    serviceId: "cab_premier",
+    serviceId: "SEDAN",
   },
   {
     id: "seniors",
     title: "Seniors",
     icon: "body",
-    serviceId: "cab_go",
+    serviceId: "MINI",
   },
   {
     id: "reserve",
     title: "Reserve",
     icon: "calendar",
     badge: "7%",
-    serviceId: "cab_premier",
+    serviceId: "SEDAN",
   },
   {
     id: "parcel",
     title: "Parcel",
     icon: "cube",
-    serviceId: "cab_go",
+    serviceId: "MINI",
   },
 ];
 
